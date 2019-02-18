@@ -1,0 +1,32 @@
+[package]
+name = "starstruck"
+version = "0.1.0-alpha"
+authors = ["Joatin Granlund <granlundjoatin@icloud.com>"]
+edition = "2018"
+description = "A game building utility that is made to be simple to use while still providing great performance"
+repository = "https://github.com/Joatin/starstruck"
+license = "MIT"
+license-file = "LICENSE"
+
+[dependencies]
+log = "0.4.6"
+winit = { version = "0.18.1", features = ["serde"] }
+gfx-hal = "0.1"
+dirs = "1.0.4"
+serde = "1.0.87"
+serde_derive = "1.0.87"
+obj = "0.9.0"
+vek = "0.9.6"
+threadpool = "1.7.1"
+num_cpus = "1.0"
+error-chain = "0.12.0"
+arrayvec = "0.4"
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies.gfx-backend-vulkan]
+version = "0.1"
+
+[target.'cfg(target_os = "macos")'.dependencies.gfx-backend-metal]
+version = "0.1"
+
+[target.'cfg(windows)'.dependencies.gfx-backend-dx12]
+version = "0.1"
