@@ -1,13 +1,18 @@
 # Starstruck
+![https://img.shields.io/crates/v/starstruck.svg?style=for-the-badge](https://img.shields.io/crates/v/starstruck.svg?style=for-the-badge) ![https://img.shields.io/crates/d/starstruck.svg?style=for-the-badge](https://img.shields.io/crates/d/starstruck.svg?style=for-the-badge)
+
+Welcome to the Starstruck project! Starstruck is yet another game engine written in rust. It's goals are to offer a more user friendly experience rather than using **gfx-rs** directly, while still maintaining high performance.
+
+The project is still in Alpha stage and Api changes will happen and occur frequently!
 
 ## License
 
 Licensed under either of
 
  * Apache License, Version 2.0
-   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+   [LICENSE-APACHE](LICENSE-APACHE)
  * MIT license
-   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+   [LICENSE-MIT](LICENSE-MIT)
 
 at your option.
 
