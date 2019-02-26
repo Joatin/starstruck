@@ -1,5 +1,5 @@
 # Starstruck
-![https://img.shields.io/crates/v/starstruck.svg?style=for-the-badge](https://img.shields.io/crates/v/starstruck.svg?style=for-the-badge) ![https://img.shields.io/crates/d/starstruck.svg?style=for-the-badge](https://img.shields.io/crates/d/starstruck.svg?style=for-the-badge)
+[![https://img.shields.io/crates/v/starstruck.svg?style=for-the-badge](https://img.shields.io/crates/v/starstruck.svg?style=for-the-badge)](https://crates.io/crates/starstruck) [![https://img.shields.io/crates/d/starstruck.svg?style=for-the-badge](https://img.shields.io/crates/d/starstruck.svg?style=for-the-badge)](https://crates.io/crates/starstruck)
 
 Welcome to the Starstruck project! Starstruck is yet another game engine written in rust. It's goals are to offer a more user friendly experience rather than using **gfx-rs** directly, while still maintaining high performance.
 

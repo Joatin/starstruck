@@ -25,6 +25,7 @@ use futures::prelude::*;
 use std::sync::Arc;
 use futures::task::current;
 use crate::internal::FenceExt;
+use colored::*;
 
 
 pub struct BufferBundle {
@@ -67,7 +68,7 @@ impl BufferBundle {
             (device, queue_group)
         };
 
-        info!("Allocating new buffer of type {:?} that is {:?} bytes long", usage, buffer_len);
+        info!("{} {} {} {} {}", "Allocating new buffer of type".green(), format!("{:?}", usage).yellow(), "that is".green(), buffer_len.to_string().yellow(), "bytes long".green());
         unsafe {
             let mut buffer = device.create_buffer(buffer_len, usage)?;
             let requirements = device.get_buffer_requirements(&buffer);
@@ -198,7 +199,7 @@ impl Drop for BufferBundle {
     fn drop(&mut self) {
         use core::ptr::read;
 
-        info!("Destroying buffer bundle, {:?} bytes of memory will be freed", self.requirements.size);
+        info!("{} {} {}", "Dropping buffer bundle,".red(), self.requirements.size.to_string().yellow(), "bytes of memory will be freed".red());
 
         let device = &self.device;
         let buffer = &self.buffer;

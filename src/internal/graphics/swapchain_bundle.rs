@@ -46,6 +46,7 @@ use gfx_hal::CommandPool;
 use std::sync::Arc;
 use gfx_hal::AcquireError;
 use crate::errors::CreateEncoderErrorKind;
+use colored::*;
 
 
 pub struct SwapchainBundle {
@@ -73,6 +74,9 @@ impl SwapchainBundle {
         surface: &mut <backend::Backend as Backend>::Surface,
         command_pool: &mut CommandPool<backend::Backend, Graphics>
     ) -> Result<Self, Error> {
+
+        info!("{}", "Creating new swapchain".green());
+
         let (swapchain, backbuffer, format, render_area, image_count) = Self::create_swapchain(adapter, &device, window, surface)?;
         let render_pass = Self::create_render_pass(&device, format)?;
 
@@ -258,10 +262,10 @@ impl SwapchainBundle {
         surface: &mut <backend::Backend as Backend>::Surface
     ) -> Result<(<backend::Backend as Backend>::Swapchain, Backbuffer<backend::Backend>, Format, Extent2D, usize), Error> {
         let (caps, preferred_formats, present_modes, composite_alphas) = surface.compatibility(&adapter.physical_device);
-        info!("{:?}", caps);
-        info!("Preferred Formats: {:?}", preferred_formats);
-        info!("Present Modes: {:?}", present_modes);
-        info!("Composite Alphas: {:?}", composite_alphas);
+        debug!("{:?}", caps);
+        debug!("Preferred Formats: {:?}", preferred_formats);
+        debug!("Present Modes: {:?}", present_modes);
+        debug!("Composite Alphas: {:?}", composite_alphas);
 
         // Find the window mode
         let present_mode = {
@@ -395,7 +399,7 @@ impl SwapchainBundle {
 
 impl Drop for SwapchainBundle {
     fn drop(&mut self) {
-        info!("Droping SwapchainBundle");
+        info!("{}", "Dropping Swapchain".red());
         let _ = self.device.wait_idle();
         unsafe {
             for depth_image in self.depth_images.drain(..) {

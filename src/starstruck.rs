@@ -101,7 +101,7 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
             let r: RC = tokio::runtime::current_thread::block_on_all(setup).unwrap();
             let mut d = cloned_data.write().unwrap();
             d.replace(r);
-            info!("Setup took {:?} to complete", now.elapsed())
+            info!("{}", format!("Setup took {:?} to complete", now.elapsed()).magenta())
         });
 
         let mut recreate_swapchain = false;

@@ -20,7 +20,6 @@ impl FutureFence {
 
 impl Drop for FutureFence {
     fn drop(&mut self) {
-        info!("Dropping fence");
         use core::ptr::read;
         unsafe {
             self.device.destroy_fence(ManuallyDrop::into_inner( read(&self.fence)));

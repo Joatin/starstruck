@@ -35,6 +35,7 @@ use gfx_hal::pso::DescriptorSetLayoutBinding;
 use gfx_hal::window::Extent2D;
 use std::sync::Arc;
 use std::mem::ManuallyDrop;
+use colored::*;
 
 
 pub struct PipelineBundle {
@@ -47,6 +48,8 @@ pub struct PipelineBundle {
 impl PipelineBundle {
 
     pub fn new<T: Vertex>(device: Arc<backend::Device>, render_pass: Arc<ManuallyDrop<<backend::Backend as Backend>::RenderPass>>, render_area: Extent2D, set: &ShaderSet) -> Result<Self, Error> {
+        info!("{}", "Creating new pipeline".green());
+
         let(descriptor_layouts, layout, pipeline) = Self::create::<T>(&device, &render_pass, render_area, &set)?;
         Ok(Self {
             descriptor_layouts,
@@ -254,7 +257,7 @@ impl Drop for PipelineBundle {
     fn drop(&mut self) {
         use core::ptr::read;
 
-        info!("Dropping Pipeline");
+        info!("{}", "Dropping Pipeline".red());
 
         let device = &self.device;
         let layout = &self.layout;
