@@ -1,7 +1,10 @@
-
 extern crate glsl_to_spirv;
 
 use std::error::Error;
+use std::env;
+use std::path::Path;
+use std::fs::File;
+use std::io::Write;
 
 fn main() -> Result<(), Box<Error>> {
     use glsl_to_spirv::ShaderType;
@@ -9,8 +12,14 @@ fn main() -> Result<(), Box<Error>> {
     // Tell the build script to only run again if we change our source shaders
     println!("cargo:rerun-if-changed=examples/shaders");
 
+    let env_dir = env::var("OUT_DIR")?;
+    let out_dir = Path::new(&env_dir);
+
+    dbg!(out_dir);
+
     // Create destination path if necessary
-    std::fs::create_dir_all("examples/assets/gen/shaders")?;
+    // std::fs::create_dir(out_dir.join("/shaders")).expect("Build.rs is not allowed to write to OUT_DIR");
+    dbg!(out_dir);
 
     for entry in std::fs::read_dir("examples/shaders")? {
         let entry = entry?;
@@ -37,12 +46,17 @@ fn main() -> Result<(), Box<Error>> {
                 let mut compiled_bytes = Vec::new();
                 compiled_file.read_to_end(&mut compiled_bytes)?;
 
-                let out_path = format!(
-                    "examples/assets/gen/shaders/{}.spv",
+                let out_path = out_dir.join(format!(
+                    "{}.spv",
                     in_path.file_name().unwrap().to_string_lossy()
-                );
+                ));
+                dbg!(&out_dir);
+                dbg!(&out_path);
 
-                std::fs::write(&out_path, &compiled_bytes)?;
+                let mut f = File::create(&out_path)?;
+
+
+                f.write_all(&compiled_bytes)?;
             }
         }
     }

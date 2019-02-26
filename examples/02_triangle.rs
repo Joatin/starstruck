@@ -22,13 +22,12 @@ struct State {
     triangle_pipeline: Arc<Pipeline<Vertex2D>>,
     triangle_bundle: Bundle<u16, Vertex2D>,
 }
-
 const SHADERS: ShaderSet = ShaderSet {
-    vertex: ShaderDescription { spirv: include_bytes!("assets/gen/shaders/02_traingle.vert.spv"), constant_byte_size: 0 },
+    vertex: ShaderDescription { spirv: include_bytes!(concat!(env!("OUT_DIR"), "/02_traingle.vert.spv")), constant_byte_size: 0 },
     hull: None,
     domain: None,
     geometry: None,
-    fragment: Some(ShaderDescription { spirv: include_bytes!("assets/gen/shaders/02_traingle.frag.spv"), constant_byte_size: 0 })
+    fragment: Some(ShaderDescription { spirv: include_bytes!(concat!(env!("OUT_DIR"), "/02_traingle.frag.spv")), constant_byte_size: 0 })
 };
 
 fn main() {
