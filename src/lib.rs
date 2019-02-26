@@ -7,7 +7,7 @@ extern crate gfx_backend_metal as backend;
 extern crate gfx_backend_vulkan as backend;
 
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
 #[macro_use]
 extern crate log;
 
@@ -15,9 +15,12 @@ extern crate log;
 mod starstruck;
 mod internal;
 
-pub mod errors;
 pub mod context;
 pub mod input;
+pub mod setup_context;
+pub mod primitive;
+pub mod graphics;
+pub mod errors;
 
 pub use self::starstruck::Starstruck;
 
