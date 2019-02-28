@@ -1,0 +1,7 @@
+[book]
+title = "Starstuck"
+authors = ["Joatin Granlund <granlundjoatin@icloud.com>"]
+
+[build]
+build-dir = "../target/book-output"
+create-missing = true
