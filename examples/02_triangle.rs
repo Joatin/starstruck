@@ -1,21 +1,21 @@
-use starstruck::Starstruck;
-use starstruck::primitive::Vertex2D;
-use simplelog::TermLogger;
-use simplelog::LevelFilter;
+use failure::Error;
+use futures::future::Future;
 use simplelog::Config;
+use simplelog::LevelFilter;
+use simplelog::TermLogger;
 use starstruck::graphics::Bundle;
 use starstruck::graphics::Pipeline;
-use futures::future::Future;
+use starstruck::primitive::Vertex2D;
+use starstruck::CreateDefaultPipeline;
+use starstruck::SetupContext;
+use starstruck::Starstruck;
 use std::sync::Arc;
-use failure::Error;
-use starstruck::setup_context::SetupContext;
-use starstruck::setup_context::CreateDefaultPipeline;
 
 // OUR VERTICES
 const VERTICES: [Vertex2D; 3] = [
     Vertex2D { x: -0.5, y: 0.5 },
     Vertex2D { x: 0.0, y: -0.5 },
-    Vertex2D { x: 0.5, y: 0.5 }
+    Vertex2D { x: 0.5, y: 0.5 },
 ];
 
 // INDEXES
@@ -28,16 +28,16 @@ struct State {
 }
 
 impl State {
-    pub fn new(setup: &SetupContext) -> impl Future<Item=Self, Error=Error> {
+    pub fn new(setup: &SetupContext) -> impl Future<Item = Self, Error = Error> {
         let pipeline_promise = setup.create_default_pipeline();
         let bundle_promise = setup.create_bundle(&INDEXES, &VERTICES);
 
-        pipeline_promise.join(bundle_promise).map(|(pipeline, bundle)| {
-            State {
+        pipeline_promise
+            .join(bundle_promise)
+            .map(|(pipeline, bundle)| State {
                 triangle_pipeline: pipeline,
-                triangle_bundle: bundle
-            }
-        })
+                triangle_bundle: bundle,
+            })
     }
 }
 
@@ -51,8 +51,9 @@ fn main() {
         |(state, context)| {
             context.draw(&state.triangle_pipeline, &state.triangle_bundle);
             Ok(())
-        }
-    ).unwrap();
+        },
+    )
+    .unwrap();
 
     starstruck.run().unwrap();
 }

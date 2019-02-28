@@ -18,7 +18,7 @@ impl DefaultCamera {
             orthogonal_projection: Mat4::identity(),
             position: Vec3::zero(),
             pitch_deg: 0.0,
-            yaw_deg: 0.0
+            yaw_deg: 0.0,
         }
     }
 
@@ -44,7 +44,7 @@ impl Camera for DefaultCamera {
         let view = Mat4::<f32>::look_at(
             self.position,
             self.position + self.make_front(),
-            Vec3::<f32>::down()
+            Vec3::<f32>::down(),
         );
 
         self.perspective_projection * view

@@ -1,22 +1,21 @@
+use crate::errors::CreateEncoderError;
+use crate::internal::graphics::SwapchainBundle;
 use core::mem::ManuallyDrop;
+use failure::Error;
+use gfx_hal::command::RenderPassInlineEncoder;
+use gfx_hal::window::Extent2D;
 use gfx_hal::{
     adapter::{Adapter, PhysicalDevice},
     device::Device,
     pool::{CommandPool, CommandPoolCreateFlags},
-    queue::{family::QueueGroup},
-    Backend, Gpu, Graphics, Instance, QueueFamily, Surface
+    queue::family::QueueGroup,
+    Backend, Gpu, Graphics, Instance, QueueFamily, Surface,
 };
-use winit::Window;
-use gfx_hal::window::Extent2D;
-use gfx_hal::command::RenderPassInlineEncoder;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use failure::Error;
-use crate::errors::CreateEncoderError;
 use std::sync::Arc;
-use crate::internal::graphics::SwapchainBundle;
 use std::sync::RwLock;
-
+use winit::Window;
 
 pub struct GraphicsState {
     command_pool: RwLock<ManuallyDrop<CommandPool<backend::Backend, Graphics>>>,
@@ -25,7 +24,7 @@ pub struct GraphicsState {
     adapter: Arc<Adapter<backend::Backend>>,
     _surface: RwLock<<backend::Backend as Backend>::Surface>,
     _instance: ManuallyDrop<backend::Instance>,
-    swapchain: RwLock<SwapchainBundle>
+    swapchain: RwLock<SwapchainBundle>,
 }
 
 impl GraphicsState {
@@ -35,10 +34,14 @@ impl GraphicsState {
 
         let adapters = instance.enumerate_adapters();
 
-        info!("Found the following physical devices: {:?}", adapters.iter().map(|a| { &a.info }).collect::<Vec<_>>());
+        info!(
+            "Found the following physical devices: {:?}",
+            adapters.iter().map(|a| &a.info).collect::<Vec<_>>()
+        );
 
         // Select An Adapter
-        let adapter = adapters.into_iter()
+        let adapter = adapters
+            .into_iter()
             .find(|a| {
                 a.queue_families
                     .iter()
@@ -54,7 +57,10 @@ impl GraphicsState {
             let queue_family = adapter
                 .queue_families
                 .iter()
-                .find(|qf| qf.supports_graphics() && surface.supports_queue_family(qf) || qf.supports_transfer())
+                .find(|qf| {
+                    qf.supports_graphics() && surface.supports_queue_family(qf)
+                        || qf.supports_transfer()
+                })
                 .ok_or_else(|| format_err!("Couldn't find a QueueFamily with graphics!"))?;
             let Gpu { device, mut queues } = unsafe {
                 adapter
@@ -67,11 +73,12 @@ impl GraphicsState {
             if !queue_group.queues.is_empty() {
                 Ok(())
             } else {
-                Err(format_err!("The QueueGroup did not have any CommandQueues available!"))
+                Err(format_err!(
+                    "The QueueGroup did not have any CommandQueues available!"
+                ))
             }?;
             (Arc::new(device), queue_group)
         };
-
 
         // Create Our CommandPool
         let mut command_pool = unsafe {
@@ -79,7 +86,13 @@ impl GraphicsState {
                 .create_command_pool_typed(&queue_group, CommandPoolCreateFlags::RESET_INDIVIDUAL)?
         };
 
-        let swapchain = SwapchainBundle::new(&adapter, Arc::clone(&device), window, &mut surface, &mut command_pool)?;
+        let swapchain = SwapchainBundle::new(
+            &adapter,
+            Arc::clone(&device),
+            window,
+            &mut surface,
+            &mut command_pool,
+        )?;
 
         Ok(Self {
             _instance: ManuallyDrop::new(instance),
@@ -88,7 +101,7 @@ impl GraphicsState {
             device,
             queue_group: RwLock::new(queue_group),
             swapchain: RwLock::new(swapchain),
-            command_pool: RwLock::new(ManuallyDrop::new(command_pool))
+            command_pool: RwLock::new(ManuallyDrop::new(command_pool)),
         })
     }
 
@@ -106,7 +119,12 @@ impl GraphicsState {
         Ok(())
     }
 
-    pub fn next_encoder<F: FnOnce(RenderPassInlineEncoder<backend::Backend>) -> Result<(), Error>>(&self, callback: F) -> Result<(), CreateEncoderError> {
+    pub fn next_encoder<
+        F: FnOnce(RenderPassInlineEncoder<backend::Backend>) -> Result<(), Error>,
+    >(
+        &self,
+        callback: F,
+    ) -> Result<(), CreateEncoderError> {
         let mut lock = self.swapchain.write().unwrap();
         let encoder = lock.next_encoder()?;
         callback(encoder).unwrap();
@@ -126,7 +144,13 @@ impl GraphicsState {
         Arc::clone(&self.device)
     }
 
-    pub fn render_pass<T: FnOnce(&<backend::Backend as Backend>::RenderPass) -> Result<R, Error>, R>(&self, callback: T) -> Result<R, Error> {
+    pub fn render_pass<
+        T: FnOnce(&<backend::Backend as Backend>::RenderPass) -> Result<R, Error>,
+        R,
+    >(
+        &self,
+        callback: T,
+    ) -> Result<R, Error> {
         let lock = self.swapchain.read().unwrap();
         callback(lock.render_pass())
     }

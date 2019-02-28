@@ -1,31 +1,35 @@
-use crate::input::UserInput;
-use gfx_hal::command::RenderPassInlineEncoder;
-use crate::setup_context::SetupContext;
-use crate::primitive::Vertex;
 use crate::graphics::Bundle;
-use crate::primitive::Index;
 use crate::graphics::BundleEncoderExt;
+use crate::graphics::Camera;
 use crate::graphics::Pipeline;
 use crate::graphics::PipelineEncoderExt;
-use vek::Mat4;
+use crate::input::UserInput;
 use crate::internal::Mat4Ext;
+use crate::primitive::Index;
+use crate::primitive::Vertex;
+use crate::setup_context::SetupContext;
+use gfx_hal::command::RenderPassInlineEncoder;
 use gfx_hal::pso::ShaderStageFlags;
-use vek::geom::FrustumPlanes;
-use crate::graphics::Camera;
 use gfx_hal::window::Extent2D;
+use vek::geom::FrustumPlanes;
+use vek::Mat4;
 
 pub struct Context<'a> {
     setup_context: &'a SetupContext,
     input: UserInput,
     encoder: RenderPassInlineEncoder<'a, backend::Backend>,
     base_projection: Mat4<f32>,
-    render_area: Extent2D
+    render_area: Extent2D,
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn new(input: UserInput, setup_context: &'a SetupContext, encoder: RenderPassInlineEncoder<'a, backend::Backend>, render_area: Extent2D) -> Self {
-
-        let ratio = (((render_area.width as f32 / render_area.height as f32) -1.0) / 2.0) + 1.0;
+    pub(crate) fn new(
+        input: UserInput,
+        setup_context: &'a SetupContext,
+        encoder: RenderPassInlineEncoder<'a, backend::Backend>,
+        render_area: Extent2D,
+    ) -> Self {
+        let ratio = (((render_area.width as f32 / render_area.height as f32) - 1.0) / 2.0) + 1.0;
         Context {
             input,
             encoder,
@@ -37,8 +41,8 @@ impl<'a> Context<'a> {
                 bottom: -1.,
                 top: 1.,
                 near: 0.,
-                far: 100.
-            })
+                far: 100.,
+            }),
         }
     }
 
@@ -54,21 +58,28 @@ impl<'a> Context<'a> {
         self.setup_context
     }
 
-    pub fn draw<I: Index, V: Vertex>(&mut self, pipeline: &Pipeline<V> , bundle: &Bundle<I, V>)
-        where RenderPassInlineEncoder<'a, backend::Backend>: BundleEncoderExt<I, V>
+    pub fn draw<I: Index, V: Vertex>(&mut self, pipeline: &Pipeline<V>, bundle: &Bundle<I, V>)
+    where
+        RenderPassInlineEncoder<'a, backend::Backend>: BundleEncoderExt<I, V>,
     {
         self.encoder.bind_pipeline(pipeline);
         self.encoder.bind_bundle(bundle);
 
         unsafe {
             let mat_data = self.base_projection.as_push_constant_data();
-            self.encoder.bind_push_constant(pipeline, ShaderStageFlags::VERTEX, 0, mat_data);
+            self.encoder
+                .bind_push_constant(pipeline, ShaderStageFlags::VERTEX, 0, mat_data);
             self.encoder.draw_indexed(0..bundle.index_count(), 0, 0..1)
         }
     }
 
-    pub fn draw_with_camera<I: Index, V: Vertex, C: Camera>(&mut self, pipeline: &Pipeline<V> , bundle: &Bundle<I, V>, camera: &C)
-        where RenderPassInlineEncoder<'a, backend::Backend>: BundleEncoderExt<I, V>
+    pub fn draw_with_camera<I: Index, V: Vertex, C: Camera>(
+        &mut self,
+        pipeline: &Pipeline<V>,
+        bundle: &Bundle<I, V>,
+        camera: &C,
+    ) where
+        RenderPassInlineEncoder<'a, backend::Backend>: BundleEncoderExt<I, V>,
     {
         self.encoder.bind_pipeline(pipeline);
         self.encoder.bind_bundle(bundle);
@@ -76,7 +87,8 @@ impl<'a> Context<'a> {
         unsafe {
             let mut mat = camera.projection_view();
             let mat_data = mat.as_push_constant_data();
-            self.encoder.bind_push_constant(pipeline, ShaderStageFlags::VERTEX, 0, mat_data);
+            self.encoder
+                .bind_push_constant(pipeline, ShaderStageFlags::VERTEX, 0, mat_data);
             self.encoder.draw_indexed(0..bundle.index_count(), 0, 0..1)
         }
     }

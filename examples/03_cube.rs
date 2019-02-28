@@ -1,18 +1,18 @@
-use starstruck::Starstruck;
-use starstruck::primitive::Vertex3D;
-use simplelog::TermLogger;
-use simplelog::LevelFilter;
-use simplelog::Config;
-use starstruck::graphics::Bundle;
-use starstruck::graphics::Pipeline;
-use futures::future::Future;
-use std::sync::Arc;
 use failure::Error;
-use starstruck::setup_context::SetupContext;
-use starstruck::setup_context::CreateDefaultPipeline;
-use starstruck::setup_context::CreateBundleFromObj;
+use futures::future::Future;
+use simplelog::Config;
+use simplelog::LevelFilter;
+use simplelog::TermLogger;
+use starstruck::Context;
+use starstruck::graphics::Bundle;
 use starstruck::graphics::DebugCamera;
-use starstruck::context::Context;
+use starstruck::graphics::Pipeline;
+use starstruck::primitive::Vertex3D;
+use starstruck::CreateBundleFromObj;
+use starstruck::CreateDefaultPipeline;
+use starstruck::SetupContext;
+use starstruck::Starstruck;
+use std::sync::Arc;
 
 // THIS IS OUR STATE WHERE WE STORE ALL OUR DATA
 struct State {
@@ -22,17 +22,17 @@ struct State {
 }
 
 impl State {
-    pub fn new(setup: Arc<SetupContext>) -> impl Future<Item=Self, Error=Error> {
+    pub fn new(setup: Arc<SetupContext>) -> impl Future<Item = Self, Error = Error> {
         let pipeline_promise = setup.create_default_pipeline();
         let bundle_promise = setup.create_bundle_from_obj(include_bytes!("assets/cube.obj"));
 
-        pipeline_promise.join(bundle_promise).map(|(pipeline, bundle)| {
-            State {
+        pipeline_promise
+            .join(bundle_promise)
+            .map(|(pipeline, bundle)| State {
                 camera: DebugCamera::new(),
                 triangle_pipeline: pipeline,
-                triangle_bundle: bundle
-            }
-        })
+                triangle_bundle: bundle,
+            })
     }
 
     pub fn render(&mut self, context: &mut Context) -> Result<(), Error> {
@@ -49,8 +49,9 @@ fn main() {
     let starstruck = Starstruck::init(
         "02 Drawing Triangle",
         |setup| State::new(setup),
-        |(state, context)| state.render(context)
-    ).unwrap();
+        |(state, context)| state.render(context),
+    )
+    .unwrap();
 
     starstruck.run().unwrap();
 }

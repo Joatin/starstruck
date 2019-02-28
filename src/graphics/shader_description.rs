@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone)]
 pub struct ShaderDescription {
     pub spirv: &'static [u8],

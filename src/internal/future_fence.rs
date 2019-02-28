@@ -1,19 +1,19 @@
+use gfx_hal::device::Device;
 use gfx_hal::Backend;
-use std::sync::Arc;
 use std::mem::ManuallyDrop;
 use std::ops::Deref;
-use gfx_hal::device::Device;
+use std::sync::Arc;
 
 pub struct FutureFence {
     fence: ManuallyDrop<<backend::Backend as Backend>::Fence>,
-    device: Arc<backend::Device>
+    device: Arc<backend::Device>,
 }
 
 impl FutureFence {
     pub fn new(fence: <backend::Backend as Backend>::Fence, device: Arc<backend::Device>) -> Self {
         Self {
             fence: ManuallyDrop::new(fence),
-            device
+            device,
         }
     }
 }
@@ -22,7 +22,8 @@ impl Drop for FutureFence {
     fn drop(&mut self) {
         use core::ptr::read;
         unsafe {
-            self.device.destroy_fence(ManuallyDrop::into_inner( read(&self.fence)));
+            self.device
+                .destroy_fence(ManuallyDrop::into_inner(read(&self.fence)));
         }
     }
 }

@@ -1,4 +1,3 @@
-
 /// A marker trait for anything that can be used as an index
 pub trait Index: Copy + Send + Sync {}
 

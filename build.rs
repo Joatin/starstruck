@@ -1,10 +1,10 @@
 extern crate glsl_to_spirv;
 
-use std::error::Error;
 use std::env;
-use std::path::Path;
+use std::error::Error;
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 
 fn main() -> Result<(), Box<Error>> {
     use glsl_to_spirv::ShaderType;

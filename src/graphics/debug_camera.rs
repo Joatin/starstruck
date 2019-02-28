@@ -1,8 +1,8 @@
+use crate::context::Context;
 use crate::graphics::Camera;
+use vek::geom::FrustumPlanes;
 use vek::mat::Mat4;
 use vek::vec::Vec3;
-use crate::context::Context;
-use vek::geom::FrustumPlanes;
 use winit::VirtualKeyCode;
 
 #[derive(Debug, Clone, Copy)]
@@ -12,7 +12,7 @@ pub struct DebugCamera {
     position: Vec3<f32>,
     pitch_deg: f32,
     yaw_deg: f32,
-    use_perspective: bool
+    use_perspective: bool,
 }
 
 impl DebugCamera {
@@ -25,7 +25,7 @@ impl DebugCamera {
             position: Vec3::zero(),
             pitch_deg: 0.0,
             yaw_deg: 0.0,
-            use_perspective: false
+            use_perspective: false,
         }
     }
 
@@ -51,7 +51,8 @@ impl DebugCamera {
         // Update projections
         let area = context.render_area();
         let ratio = area.width as f32 / area.height as f32;
-        self.perspective_projection = Mat4::perspective_lh_zo(f32::to_radians(50.0), ratio, 0.1, 100.0);
+        self.perspective_projection =
+            Mat4::perspective_lh_zo(f32::to_radians(50.0), ratio, 0.1, 100.0);
 
         let o_height = (area.height as f32 / 2.0) * Self::ZOOM;
         let o_width = (area.width as f32 / 2.0) * Self::ZOOM;
@@ -61,7 +62,7 @@ impl DebugCamera {
             bottom: o_height * -1.,
             top: o_height,
             near: 0.,
-            far: 100.
+            far: 100.,
         });
 
         if input.keys_clicked.contains(&VirtualKeyCode::F1) {
@@ -72,7 +73,7 @@ impl DebugCamera {
             self.position += Vec3 {
                 x: 0.0,
                 y: 0.0,
-                z: 0.01
+                z: 0.01,
             };
         }
 
@@ -80,7 +81,7 @@ impl DebugCamera {
             self.position += Vec3 {
                 x: 0.0,
                 y: 0.0,
-                z: -0.01
+                z: -0.01,
             };
         }
 
@@ -88,7 +89,7 @@ impl DebugCamera {
             self.position += Vec3 {
                 x: -0.01,
                 y: 0.0,
-                z: 0.0
+                z: 0.0,
             };
         }
 
@@ -96,7 +97,7 @@ impl DebugCamera {
             self.position += Vec3 {
                 x: 0.01,
                 y: 0.0,
-                z: 0.0
+                z: 0.0,
             };
         }
 
@@ -104,7 +105,7 @@ impl DebugCamera {
             self.position += Vec3 {
                 x: 0.0,
                 y: 0.01,
-                z: 0.0
+                z: 0.0,
             };
         }
 
@@ -112,7 +113,7 @@ impl DebugCamera {
             self.position += Vec3 {
                 x: 0.0,
                 y: -0.01,
-                z: 0.0
+                z: 0.0,
             };
         }
 
@@ -139,7 +140,7 @@ impl Camera for DebugCamera {
         let view = Mat4::<f32>::look_at(
             self.position,
             self.position + self.make_front(),
-            Vec3::<f32>::down()
+            Vec3::<f32>::down(),
         );
 
         if self.use_perspective {

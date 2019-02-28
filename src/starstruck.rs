@@ -1,25 +1,24 @@
-use winit::WindowBuilder;
-use winit::Window;
-use winit::EventsLoop;
 use crate::context::Context;
+use crate::errors::CreateEncoderErrorKind;
 use crate::input::UserInput;
 use crate::internal::graphics::GraphicsState;
 use crate::setup_context::SetupContext;
-use failure::Error;
 use colored::*;
+use failure::Error;
+use futures::lazy;
 use futures::Future;
 use futures::IntoFuture;
-use futures::lazy;
+use gfx_hal::device::Device;
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::fmt;
-use std::thread;
 use std::sync::Arc;
 use std::sync::RwLock;
-use crate::errors::CreateEncoderErrorKind;
-use gfx_hal::device::Device;
+use std::thread;
 use std::time::Instant;
-
+use winit::EventsLoop;
+use winit::Window;
+use winit::WindowBuilder;
 
 const BANNER: &str = "
 
@@ -34,44 +33,44 @@ $$\\   $$ |  $$ |$$\\ $$  __$$ |$$ |       \\____$$\\   $$ |$$\\ $$ |      $$ | 
 
  ";
 
-
 pub struct Starstruck<State, RenderCallback> {
     title: String,
     window: Window,
     events_loop: EventsLoop,
     graphics_state: Arc<GraphicsState>,
     setup_context: Arc<SetupContext>,
-    setup_callback: Option<Box<Future<Item=State, Error=Error> + Send>>,
-    render_callback: RenderCallback
+    setup_callback: Option<Box<Future<Item = State, Error = Error> + Send>>,
+    render_callback: RenderCallback,
 }
 
-impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderCallback> where
-    RenderCallback: FnMut((&mut State, &mut Context)) -> Result<(), Error>
+impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderCallback>
+where
+    RenderCallback: FnMut((&mut State, &mut Context)) -> Result<(), Error>,
 {
-
-    pub fn init<C, F, FI>(title: &str, setup_callback: C, render_callback: RenderCallback) -> Result<Self, Error>
-        where
-            C: Send + 'static + FnOnce(Arc<SetupContext>) -> F,
-            F: IntoFuture<Future=FI, Item=State, Error=Error> + 'static,
-            FI: Future<Item=State, Error=Error> + Send + 'static
+    pub fn init<C, F, FI>(
+        title: &str,
+        setup_callback: C,
+        render_callback: RenderCallback,
+    ) -> Result<Self, Error>
+    where
+        C: Send + 'static + FnOnce(Arc<SetupContext>) -> F,
+        F: IntoFuture<Future = FI, Item = State, Error = Error> + 'static,
+        FI: Future<Item = State, Error = Error> + Send + 'static,
     {
         Self::print_banner();
         info!("Initializing starstruck engine");
 
         info!("Creating new window");
         let events_loop = EventsLoop::new();
-        let window = WindowBuilder::new()
-            .with_title(title)
-            .build(&events_loop)?;
+        let window = WindowBuilder::new().with_title(title).build(&events_loop)?;
 
         let graphics_state = Arc::new(GraphicsState::new(title, &window)?);
         let context = Arc::new(SetupContext::new(Arc::clone(&graphics_state)));
 
         let s_callback = {
             let cloned_context = Arc::clone(&context);
-            let future = Box::new(lazy(move || {
-                setup_callback(cloned_context)
-            })) as Box<Future<Item=State, Error=Error> + Send>;
+            let future = Box::new(lazy(move || setup_callback(cloned_context)))
+                as Box<Future<Item = State, Error = Error> + Send>;
             Some(future)
         };
 
@@ -82,7 +81,7 @@ impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderC
             graphics_state,
             setup_context: context,
             setup_callback: s_callback,
-            render_callback
+            render_callback,
         })
     }
 
@@ -103,7 +102,10 @@ impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderC
             let r: State = tokio::runtime::current_thread::block_on_all(setup).unwrap();
             let mut d = cloned_data.write().unwrap();
             d.replace(r);
-            info!("{}", format!("Setup took {:?} to complete", now.elapsed()).magenta())
+            info!(
+                "{}",
+                format!("Setup took {:?} to complete", now.elapsed()).magenta()
+            )
         });
 
         let mut recreate_swapchain = false;
@@ -122,9 +124,9 @@ impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderC
 
             let user_input_clone = user_input.clone();
             {
-
                 if let Err(error) = graphics_state.next_encoder(|encoder| {
-                    let mut context = Context::new(user_input_clone, &s_context, encoder, render_area);
+                    let mut context =
+                        Context::new(user_input_clone, &s_context, encoder, render_area);
 
                     {
                         let mut guard = s_data.write().unwrap();
@@ -139,13 +141,12 @@ impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderC
                             recreate_swapchain = true;
                             user_input.flush();
                             continue;
-                        },
+                        }
                         CreateEncoderErrorKind::Timeout => continue,
-                        _ => bail!(error)
+                        _ => bail!(error),
                     }
                 };
             };
-
 
             graphics_state.present_swapchain()?;
 

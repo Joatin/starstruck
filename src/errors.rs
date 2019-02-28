@@ -1,12 +1,12 @@
+use failure::Backtrace;
 use failure::Context;
 use failure::Fail;
-use std::fmt::Display;
 use std::fmt;
-use failure::Backtrace;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub struct CreateEncoderError {
-    inner: Context<CreateEncoderErrorKind>
+    inner: Context<CreateEncoderErrorKind>,
 }
 
 impl CreateEncoderError {
@@ -17,7 +17,9 @@ impl CreateEncoderError {
 
 impl From<CreateEncoderErrorKind> for CreateEncoderError {
     fn from(kind: CreateEncoderErrorKind) -> CreateEncoderError {
-        CreateEncoderError { inner: Context::new(kind) }
+        CreateEncoderError {
+            inner: Context::new(kind),
+        }
     }
 }
 

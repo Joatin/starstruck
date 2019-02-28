@@ -6,5 +6,5 @@ pub struct ShaderSet {
     pub hull: Option<ShaderDescription>,
     pub domain: Option<ShaderDescription>,
     pub geometry: Option<ShaderDescription>,
-    pub fragment: Option<ShaderDescription>
+    pub fragment: Option<ShaderDescription>,
 }

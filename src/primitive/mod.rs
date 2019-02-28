@@ -1,5 +1,5 @@
-mod vertex;
 mod index;
+mod vertex;
 mod vertex_xy;
 mod vertex_xyz;
 

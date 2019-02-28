@@ -1,4 +1,3 @@
-
 #[cfg(windows)]
 extern crate gfx_backend_dx12 as backend;
 #[cfg(target_os = "macos")]
@@ -11,20 +10,19 @@ extern crate failure;
 #[macro_use]
 extern crate log;
 
-
-mod starstruck;
+mod context;
 mod internal;
 mod setup_context;
-mod context;
+mod starstruck;
 
+pub mod errors;
+pub mod graphics;
 pub mod input;
 pub mod primitive;
-pub mod graphics;
-pub mod errors;
 
-pub use self::starstruck::Starstruck;
-pub use self::setup_context::*;
 pub use self::context::*;
+pub use self::setup_context::*;
+pub use self::starstruck::Starstruck;
 
 #[cfg(test)]
 mod tests {

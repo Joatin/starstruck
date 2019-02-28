@@ -1,17 +1,17 @@
-use std::mem::ManuallyDrop;
+use failure::Error;
+use gfx_hal::format::Aspects;
+use gfx_hal::format::Format;
+use gfx_hal::image::SubresourceRange;
+use gfx_hal::memory::Properties;
+use gfx_hal::memory::Requirements;
+use gfx_hal::window::Extent2D;
+use gfx_hal::Adapter;
 use gfx_hal::Backend;
 use gfx_hal::Device;
-use gfx_hal::memory::Requirements;
-use std::marker::PhantomData;
-use gfx_hal::image::SubresourceRange;
 use gfx_hal::MemoryTypeId;
-use gfx_hal::Adapter;
-use gfx_hal::format::Format;
 use gfx_hal::PhysicalDevice;
-use gfx_hal::format::Aspects;
-use gfx_hal::memory::Properties;
-use gfx_hal::window::Extent2D;
-use failure::Error;
+use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 use std::sync::Arc;
 
 pub struct DepthImage {
@@ -23,19 +23,21 @@ pub struct DepthImage {
     pub phantom: PhantomData<backend::Device>,
 }
 
-
 impl DepthImage {
-    pub fn new(device: Arc<backend::Device>, adapter: &Adapter<backend::Backend>, extent: Extent2D) -> Result<Self, Error> {
+    pub fn new(
+        device: Arc<backend::Device>,
+        adapter: &Adapter<backend::Backend>,
+        extent: Extent2D,
+    ) -> Result<Self, Error> {
         unsafe {
-            let mut the_image = device
-                .create_image(
-                    gfx_hal::image::Kind::D2(extent.width, extent.height, 1, 1),
-                    1,
-                    Format::D32Float,
-                    gfx_hal::image::Tiling::Optimal,
-                    gfx_hal::image::Usage::DEPTH_STENCIL_ATTACHMENT,
-                    gfx_hal::image::ViewCapabilities::empty(),
-                )?;
+            let mut the_image = device.create_image(
+                gfx_hal::image::Kind::D2(extent.width, extent.height, 1, 1),
+                1,
+                Format::D32Float,
+                gfx_hal::image::Tiling::Optimal,
+                gfx_hal::image::Usage::DEPTH_STENCIL_ATTACHMENT,
+                gfx_hal::image::ViewCapabilities::empty(),
+            )?;
             let requirements = device.get_image_requirements(&the_image);
             let memory_type_id = adapter
                 .physical_device
@@ -52,18 +54,17 @@ impl DepthImage {
                 .ok_or_else(|| format_err!("Couldn't find a memory type to support the image!"))?;
             let memory = device.allocate_memory(memory_type_id, requirements.size)?;
             device.bind_image_memory(&memory, 0, &mut the_image)?;
-            let image_view = device
-                .create_image_view(
-                    &the_image,
-                    gfx_hal::image::ViewKind::D2,
-                    Format::D32Float,
-                    gfx_hal::format::Swizzle::NO,
-                    SubresourceRange {
-                        aspects: Aspects::DEPTH,
-                        levels: 0..1,
-                        layers: 0..1,
-                    },
-                )?;
+            let image_view = device.create_image_view(
+                &the_image,
+                gfx_hal::image::ViewKind::D2,
+                Format::D32Float,
+                gfx_hal::format::Swizzle::NO,
+                SubresourceRange {
+                    aspects: Aspects::DEPTH,
+                    levels: 0..1,
+                    layers: 0..1,
+                },
+            )?;
             Ok(Self {
                 image: ManuallyDrop::new(the_image),
                 requirements,
