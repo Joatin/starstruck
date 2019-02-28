@@ -6,6 +6,7 @@ edition = "2018"
 description = "A game building utility that is made to be simple to use while still providing great performance"
 repository = "https://github.com/Joatin/starstruck"
 license = "MIT OR Apache-2.0"
+keywords = ["game", "gfx-rs", "gfx-hal", "winit", "futures"]
 
 [dependencies]
 log = "0.4.6"

@@ -7,7 +7,7 @@ use starstruck::Context;
 use starstruck::graphics::Bundle;
 use starstruck::graphics::DebugCamera;
 use starstruck::graphics::Pipeline;
-use starstruck::primitive::Vertex3D;
+use starstruck::primitive::Vertex3DUV;
 use starstruck::CreateBundleFromObj;
 use starstruck::CreateDefaultPipeline;
 use starstruck::SetupContext;
@@ -18,8 +18,8 @@ use vek::vec::Vec3;
 // THIS IS OUR STATE WHERE WE STORE ALL OUR DATA
 struct State {
     camera: DebugCamera,
-    triangle_pipeline: Arc<Pipeline<Vertex3D>>,
-    triangle_bundle: Bundle<u16, Vertex3D>,
+    triangle_pipeline: Arc<Pipeline<Vertex3DUV>>,
+    triangle_bundle: Bundle<u16, Vertex3DUV>,
 }
 
 impl State {
@@ -57,11 +57,11 @@ fn main() {
     TermLogger::init(LevelFilter::Info, Config::default()).unwrap();
 
     let starstruck = Starstruck::init(
-        "03 Cube",
+        "04 Texture",
         |setup| State::new(setup),
         |(state, context)| state.render(context),
     )
-    .unwrap();
+        .unwrap();
 
     starstruck.run().unwrap();
 }

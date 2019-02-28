@@ -25,7 +25,7 @@ impl DebugCamera {
             position: Vec3::zero(),
             pitch_deg: 0.0,
             yaw_deg: 0.0,
-            use_perspective: false,
+            use_perspective: true,
         }
     }
 
@@ -42,7 +42,10 @@ impl DebugCamera {
     fn update_orientation(&mut self, d_pitch_deg: f32, d_yaw_deg: f32) {
         self.pitch_deg = (self.pitch_deg + d_pitch_deg).max(-89.0).min(89.0);
         self.yaw_deg = (self.yaw_deg + d_yaw_deg) % 360.0;
-        trace!("New view pith {:?}, yew {:?}", self.pitch_deg, self.yaw_deg);
+    }
+
+    pub fn set_position(&mut self, pos: Vec3<f32>) {
+        self.position = pos;
     }
 
     pub fn update_from_context(&mut self, context: &Context) {
@@ -69,52 +72,29 @@ impl DebugCamera {
             self.use_perspective = !self.use_perspective;
         }
 
-        if input.keys_held.contains(&VirtualKeyCode::W) {
-            self.position += Vec3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.01,
-            };
-        }
+        let up = Vec3::up();
+        let forward = self.make_front();
+        let cross_normalized = Vec3::cross(forward, up).normalized();
+        let mut move_vector =
+            input.keys_held
+                .iter()
+                .fold(Vec3 {
+                    x: 0.0_f32,
+                    y: 0.0_f32,
+                    z: 0.0_f32
+                }, |vec, key| match *key {
+                    VirtualKeyCode::W => vec + forward,
+                    VirtualKeyCode::S => vec - forward,
+                    VirtualKeyCode::A => vec - cross_normalized,
+                    VirtualKeyCode::D => vec + cross_normalized,
+                    VirtualKeyCode::Space => vec + up,
+                    VirtualKeyCode::LShift => vec - up,
+                    _ => vec,
+                });
 
-        if input.keys_held.contains(&VirtualKeyCode::S) {
-            self.position += Vec3 {
-                x: 0.0,
-                y: 0.0,
-                z: -0.01,
-            };
-        }
-
-        if input.keys_held.contains(&VirtualKeyCode::A) {
-            self.position += Vec3 {
-                x: -0.01,
-                y: 0.0,
-                z: 0.0,
-            };
-        }
-
-        if input.keys_held.contains(&VirtualKeyCode::D) {
-            self.position += Vec3 {
-                x: 0.01,
-                y: 0.0,
-                z: 0.0,
-            };
-        }
-
-        if input.keys_held.contains(&VirtualKeyCode::Space) {
-            self.position += Vec3 {
-                x: 0.0,
-                y: 0.01,
-                z: 0.0,
-            };
-        }
-
-        if input.keys_held.contains(&VirtualKeyCode::LShift) {
-            self.position += Vec3 {
-                x: 0.0,
-                y: -0.01,
-                z: 0.0,
-            };
+        if move_vector != Vec3::zero() {
+            move_vector = move_vector.normalized();
+            self.position += move_vector * 0.01;
         }
 
         if input.keys_held.contains(&VirtualKeyCode::Up) {
