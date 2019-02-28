@@ -25,19 +25,20 @@ impl SetupContext {
     }
 
 
-    pub fn create_bundle<'b, I: Index, V: Vertex>(&self, indexes: &'b [I], vertexes: &'b [V]) -> impl Future<Item=Bundle<I, V>, Error=Error> + 'b + Send {
+    pub fn create_bundle<I: Index, V: Vertex>(&self, indexes: &'static [I], vertexes: &'static [V]) -> impl Future<Item=Bundle<I, V>, Error=Error> + Send {
+        Bundle::new(self.state.adapter(), Arc::new(Vec::from(indexes)), Arc::new(Vec::from(vertexes)))
+    }
+
+    pub(crate) fn create_bundle_owned<I: Index, V: Vertex>(&self, indexes: Arc<Vec<I>>, vertexes: Arc<Vec<V>>) -> impl Future<Item=Bundle<I, V>, Error=Error> + Send {
         Bundle::new(self.state.adapter(), indexes, vertexes)
     }
 
     pub fn create_pipeline<V: 'static + Vertex>(&self, shader_set: ShaderSet) -> impl Future<Item=Arc<Pipeline<V>>, Error=Error> + Send {
-        let device = self.state.device();
-        let render_pass = self.state.render_pass();
-        let render_area = self.state.render_area();
-        let pipelines_guard = Arc::clone(&self.pipelines);
+        let pipelines_mutex = Arc::clone(&self.pipelines);
 
-        Pipeline::new(device, render_pass, render_area, shader_set).map(move |pipeline| {
+        Pipeline::new(Arc::clone(&self.state), shader_set).map(move |pipeline| {
             let result = Arc::new(pipeline);
-            let mut pipelines = pipelines_guard.lock().unwrap();
+            let mut pipelines = pipelines_mutex.lock().unwrap();
             pipelines.push(Arc::clone(&result) as Arc<RecreatePipeline>);
             result
         })
@@ -45,20 +46,28 @@ impl SetupContext {
 
     pub fn drop_swapchain_dependant_data(&self) {
         let pipelines = self.pipelines.lock().unwrap();
+        info!("Dropping all old pipelines");
         pipelines.iter().for_each(|pipe| {
             pipe.drop_pipeline()
         })
     }
 
     pub fn recreate_swapchain_dependant_data(&self) -> Result<(), Error> {
-        let device = self.state.device();
-        let render_pass = self.state.render_pass();
-        let render_area = self.state.render_area();
 
+        info!("Recreating pipelines");
         let pipelines = self.pipelines.lock().unwrap();
         for pipe in pipelines.iter() {
-            pipe.recreate_pipeline(Arc::clone(&device), Arc::clone(&render_pass), render_area)?
+            pipe.recreate_pipeline(& self.state)?
         };
+        info!("All pipelines recreated");
         Ok(())
     }
+}
+
+pub trait CreateDefaultPipeline<V: Vertex> {
+    fn create_default_pipeline(&self) -> Box<Future<Item=Arc<Pipeline<V>>, Error=Error> + Send>;
+}
+
+pub trait CreateBundleFromObj<I: Index, V: Vertex> {
+    fn create_bundle_from_obj(&self, data: &[u8]) -> Box<Future<Item=Bundle<I, V>, Error=Error> + Send>;
 }

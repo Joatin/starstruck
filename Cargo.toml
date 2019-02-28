@@ -1,6 +1,6 @@
 [package]
 name = "starstruck"
-version = "0.2.0-alpha"
+version = "0.1.0-alpha.2"
 authors = ["Joatin Granlund <granlundjoatin@icloud.com>"]
 edition = "2018"
 description = "A game building utility that is made to be simple to use while still providing great performance"

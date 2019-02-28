@@ -47,16 +47,20 @@ pub struct PipelineBundle {
 
 impl PipelineBundle {
 
-    pub fn new<T: Vertex>(device: Arc<backend::Device>, render_pass: Arc<ManuallyDrop<<backend::Backend as Backend>::RenderPass>>, render_area: Extent2D, set: &ShaderSet) -> Result<Self, Error> {
+    pub fn new<T: Vertex>(device: Arc<backend::Device>, render_pass: &<backend::Backend as Backend>::RenderPass, render_area: Extent2D, set: &ShaderSet) -> Result<Self, Error> {
         info!("{}", "Creating new pipeline".green());
 
-        let(descriptor_layouts, layout, pipeline) = Self::create::<T>(&device, &render_pass, render_area, &set)?;
+        let(descriptor_layouts, layout, pipeline) = Self::create::<T>(&device, render_pass, render_area, &set)?;
         Ok(Self {
             descriptor_layouts,
             layout: ManuallyDrop::new(layout),
             pipeline: ManuallyDrop::new(pipeline),
             device: Arc::clone(&device)
         })
+    }
+
+    pub fn layout(&self) -> &<backend::Backend as Backend>::PipelineLayout {
+        &self.layout
     }
 
     #[allow(clippy::type_complexity)]
@@ -102,7 +106,7 @@ impl PipelineBundle {
 
         let vertex_buffers: Vec<VertexBufferDesc> = vec![VertexBufferDesc {
             binding: 0,
-            stride: T::get_stride() as u32,
+            stride: T::stride() as u32,
             rate: 0,
         }];
 

@@ -1,5 +1,4 @@
 use winit::WindowBuilder;
-use winit::dpi::LogicalSize;
 use winit::Window;
 use winit::EventsLoop;
 use crate::context::Context;
@@ -9,6 +8,7 @@ use crate::setup_context::SetupContext;
 use failure::Error;
 use colored::*;
 use futures::Future;
+use futures::IntoFuture;
 use futures::lazy;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -35,21 +35,25 @@ $$\\   $$ |  $$ |$$\\ $$  __$$ |$$ |       \\____$$\\   $$ |$$\\ $$ |      $$ | 
  ";
 
 
-pub struct Starstruck<RC> {
+pub struct Starstruck<State, RenderCallback> {
     title: String,
     window: Window,
     events_loop: EventsLoop,
     graphics_state: Arc<GraphicsState>,
     setup_context: Arc<SetupContext>,
-    setup_callback: Option<Box<Future<Item=RC, Error=Error> + Send>>
+    setup_callback: Option<Box<Future<Item=State, Error=Error> + Send>>,
+    render_callback: RenderCallback
 }
 
-impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
+impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderCallback> where
+    RenderCallback: FnMut((&mut State, &mut Context)) -> Result<(), Error>
+{
 
-    pub fn init<C, F>(title: &str, setup_callback: C) -> Result<Self, Error>
+    pub fn init<C, F, FI>(title: &str, setup_callback: C, render_callback: RenderCallback) -> Result<Self, Error>
         where
             C: Send + 'static + FnOnce(Arc<SetupContext>) -> F,
-            F: Send + 'static + Future<Item=RC, Error=Error>
+            F: IntoFuture<Future=FI, Item=State, Error=Error> + 'static,
+            FI: Future<Item=State, Error=Error> + Send + 'static
     {
         Self::print_banner();
         info!("Initializing starstruck engine");
@@ -58,10 +62,6 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
         let events_loop = EventsLoop::new();
         let window = WindowBuilder::new()
             .with_title(title)
-            .with_dimensions(LogicalSize {
-                width: 800.0,
-                height: 600.0
-            })
             .build(&events_loop)?;
 
         let graphics_state = Arc::new(GraphicsState::new(title, &window)?);
@@ -71,7 +71,7 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
             let cloned_context = Arc::clone(&context);
             let future = Box::new(lazy(move || {
                 setup_callback(cloned_context)
-            })) as Box<Future<Item=RC, Error=Error> + Send>;
+            })) as Box<Future<Item=State, Error=Error> + Send>;
             Some(future)
         };
 
@@ -81,15 +81,17 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
             events_loop,
             graphics_state,
             setup_context: context,
-            setup_callback: s_callback
+            setup_callback: s_callback,
+            render_callback
         })
     }
 
-    pub fn start<T: FnMut((&mut RC, &mut Context)) -> Result<(), Error>>(mut self, mut callback: T) -> Result<(), Error> {
+    pub fn run(mut self) -> Result<(), Error> {
         let events_loop = &mut self.events_loop;
         let graphics_state = &mut self.graphics_state;
         let setup = self.setup_callback.take().unwrap();
         let s_context = &self.setup_context;
+        let render_callback = &mut self.render_callback;
 
         let mut user_input = UserInput::new();
 
@@ -98,7 +100,7 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
         let cloned_data = Arc::clone(&s_data);
         thread::spawn(move || {
             let now = Instant::now();
-            let r: RC = tokio::runtime::current_thread::block_on_all(setup).unwrap();
+            let r: State = tokio::runtime::current_thread::block_on_all(setup).unwrap();
             let mut d = cloned_data.write().unwrap();
             d.replace(r);
             info!("{}", format!("Setup took {:?} to complete", now.elapsed()).magenta())
@@ -107,6 +109,7 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
         let mut recreate_swapchain = false;
 
         loop {
+            let render_area = graphics_state.render_area();
 
             if recreate_swapchain {
                 graphics_state.device().wait_idle()?;
@@ -117,15 +120,16 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
             }
             user_input.reset_and_poll_events(events_loop);
 
+            let user_input_clone = user_input.clone();
             {
 
                 if let Err(error) = graphics_state.next_encoder(|encoder| {
-                    let mut context = Context::new(user_input, &s_context, encoder);
+                    let mut context = Context::new(user_input_clone, &s_context, encoder, render_area);
 
                     {
                         let mut guard = s_data.write().unwrap();
                         if let Some(d) = guard.as_mut() {
-                            callback((d, &mut context))?;
+                            render_callback((d, &mut context))?;
                         }
                     }
                     Ok(())
@@ -133,6 +137,7 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
                     match error.kind() {
                         CreateEncoderErrorKind::RecreateSwapchain => {
                             recreate_swapchain = true;
+                            user_input.flush();
                             continue;
                         },
                         CreateEncoderErrorKind::Timeout => continue,
@@ -144,9 +149,15 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
 
             graphics_state.present_swapchain()?;
 
+            if user_input.resized {
+                recreate_swapchain = true;
+            }
+
             if user_input.end_requested {
                 break;
             }
+
+            user_input.flush();
         }
 
         Ok(())
@@ -157,7 +168,7 @@ impl<'a, RC: 'static + Send + Sync> Starstruck<RC> {
     }
 }
 
-impl<RC> Debug for Starstruck<RC> {
+impl<State, RenderCallback> Debug for Starstruck<State, RenderCallback> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.title)?;
         write!(f, "Window: {:?}", self.window)?;

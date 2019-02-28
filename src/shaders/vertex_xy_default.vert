@@ -1,4 +1,9 @@
 #version 450
+
+layout (push_constant) uniform PushConsts {
+  mat4 mvp;
+} push;
+
 layout (location = 0) in vec2 position;
 
 layout (location = 0) out gl_PerVertex {
@@ -7,5 +12,5 @@ layout (location = 0) out gl_PerVertex {
 
 void main()
 {
-  gl_Position = vec4(position, 0.0, 1.0);
+  gl_Position = push.mvp * vec4(position, 0.0, 1.0);
 }

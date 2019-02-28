@@ -10,18 +10,12 @@ fn main() -> Result<(), Box<Error>> {
     use glsl_to_spirv::ShaderType;
 
     // Tell the build script to only run again if we change our source shaders
-    println!("cargo:rerun-if-changed=examples/shaders");
+    println!("cargo:rerun-if-changed=src/shaders");
 
     let env_dir = env::var("OUT_DIR")?;
     let out_dir = Path::new(&env_dir);
 
-    dbg!(out_dir);
-
-    // Create destination path if necessary
-    // std::fs::create_dir(out_dir.join("/shaders")).expect("Build.rs is not allowed to write to OUT_DIR");
-    dbg!(out_dir);
-
-    for entry in std::fs::read_dir("examples/shaders")? {
+    for entry in std::fs::read_dir("src/shaders")? {
         let entry = entry?;
 
         if entry.file_type()?.is_file() {
@@ -50,12 +44,7 @@ fn main() -> Result<(), Box<Error>> {
                     "{}.spv",
                     in_path.file_name().unwrap().to_string_lossy()
                 ));
-                dbg!(&out_dir);
-                dbg!(&out_path);
-
                 let mut f = File::create(&out_path)?;
-
-
                 f.write_all(&compiled_bytes)?;
             }
         }

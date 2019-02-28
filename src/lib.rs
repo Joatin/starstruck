@@ -14,16 +14,17 @@ extern crate log;
 
 mod starstruck;
 mod internal;
+mod setup_context;
+mod context;
 
-pub mod context;
 pub mod input;
-pub mod setup_context;
 pub mod primitive;
 pub mod graphics;
 pub mod errors;
 
 pub use self::starstruck::Starstruck;
-
+pub use self::setup_context::*;
+pub use self::context::*;
 
 #[cfg(test)]
 mod tests {

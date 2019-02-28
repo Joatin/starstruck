@@ -1,5 +1,5 @@
 use starstruck::Starstruck;
-use starstruck::primitive::Vertex2D;
+use starstruck::primitive::Vertex3D;
 use simplelog::TermLogger;
 use simplelog::LevelFilter;
 use simplelog::Config;
@@ -10,34 +10,35 @@ use std::sync::Arc;
 use failure::Error;
 use starstruck::setup_context::SetupContext;
 use starstruck::setup_context::CreateDefaultPipeline;
-
-// OUR VERTICES
-const VERTICES: [Vertex2D; 3] = [
-    Vertex2D { x: -0.5, y: 0.5 },
-    Vertex2D { x: 0.0, y: -0.5 },
-    Vertex2D { x: 0.5, y: 0.5 }
-];
-
-// INDEXES
-const INDEXES: [u16; 3] = [0, 1, 2];
+use starstruck::setup_context::CreateBundleFromObj;
+use starstruck::graphics::DebugCamera;
+use starstruck::context::Context;
 
 // THIS IS OUR STATE WHERE WE STORE ALL OUR DATA
 struct State {
-    triangle_pipeline: Arc<Pipeline<Vertex2D>>,
-    triangle_bundle: Bundle<u16, Vertex2D>,
+    camera: DebugCamera,
+    triangle_pipeline: Arc<Pipeline<Vertex3D>>,
+    triangle_bundle: Bundle<u16, Vertex3D>,
 }
 
 impl State {
-    pub fn new(setup: &SetupContext) -> impl Future<Item=Self, Error=Error> {
+    pub fn new(setup: Arc<SetupContext>) -> impl Future<Item=Self, Error=Error> {
         let pipeline_promise = setup.create_default_pipeline();
-        let bundle_promise = setup.create_bundle(&INDEXES, &VERTICES);
+        let bundle_promise = setup.create_bundle_from_obj(include_bytes!("assets/cube.obj"));
 
         pipeline_promise.join(bundle_promise).map(|(pipeline, bundle)| {
             State {
+                camera: DebugCamera::new(),
                 triangle_pipeline: pipeline,
                 triangle_bundle: bundle
             }
         })
+    }
+
+    pub fn render(&mut self, context: &mut Context) -> Result<(), Error> {
+        self.camera.update_from_context(context);
+        context.draw_with_camera(&self.triangle_pipeline, &self.triangle_bundle, &self.camera);
+        Ok(())
     }
 }
 
@@ -47,11 +48,8 @@ fn main() {
 
     let starstruck = Starstruck::init(
         "02 Drawing Triangle",
-        |setup| State::new(&setup),
-        |(state, context)| {
-            context.draw(&state.triangle_pipeline, &state.triangle_bundle);
-            Ok(())
-        }
+        |setup| State::new(setup),
+        |(state, context)| state.render(context)
     ).unwrap();
 
     starstruck.run().unwrap();

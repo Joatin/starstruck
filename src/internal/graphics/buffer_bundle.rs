@@ -99,7 +99,7 @@ impl BufferBundle {
         }
     }
 
-    fn create_staged_bundle<'a, D :Copy + Send + Sync>(adapter: Arc<Adapter<backend::Backend>>, buffer_size: u64, usage: BufferUsage, data: &'a [D]) -> impl Future<Item=BufferBundle, Error=Error> + 'a + Send {
+    fn create_staged_bundle<D :Copy + Send + Sync>(adapter: Arc<Adapter<backend::Backend>>, buffer_size: u64, usage: BufferUsage, data: Arc<Vec<D>>) -> impl Future<Item=BufferBundle, Error=Error> + Send {
         BufferBundle::create_async(Arc::clone(&adapter),buffer_size, BufferUsage::TRANSFER_SRC, Properties::CPU_VISIBLE)
             .and_then( move |s_buffer| {
                 s_buffer.bind_data_async(data).and_then( move |bound_buffer| {
@@ -111,7 +111,7 @@ impl BufferBundle {
         })
     }
 
-    pub fn copy_data_into_other<'a>(mut self, dst: BufferBundle, buffer_size: u64) -> impl Future<Item=Self, Error=Error> + 'a + Send {
+    pub fn copy_data_into_other(mut self, dst: BufferBundle, buffer_size: u64) -> impl Future<Item=Self, Error=Error> + Send {
         let bundle = dst;
         let device = Arc::clone(&self.device);
 
@@ -165,14 +165,14 @@ impl BufferBundle {
         }))
     }
 
-     fn bind_data_async<'a, D :Copy + Send + Sync>(self, points: &'a [D]) -> impl Future<Item=Self, Error=Error> + 'a + Send {
+     fn bind_data_async<D :Copy + Send + Sync>(self, points: Arc<Vec<D>>) -> impl Future<Item=Self, Error=Error> + Send {
          Box::new(lazy(move || {
              self.bind_data(points)?;
              Ok(self)
          }))
      }
 
-    fn bind_data<D :Copy + Send + Sync>(&self, points: &[D]) -> Result<(), Error> {
+    fn bind_data<D :Copy + Send + Sync>(&self, points: Arc<Vec<D>>) -> Result<(), Error> {
         // Write the index data just once.
         info!("Writing data into buffer");
         unsafe {
@@ -185,11 +185,11 @@ impl BufferBundle {
         }
         Ok(())
     }
-    pub fn new_vertex<'a, D: Vertex>(adapter: Arc<Adapter<backend::Backend>>, points: &'a [D]) -> impl Future<Item=BufferBundle, Error=Error> + 'a + Send {
-        let buffer_size = (D::get_stride() * points.len()) as u64;
+    pub fn new_vertex<D: Vertex>(adapter: Arc<Adapter<backend::Backend>>, points: Arc<Vec<D>>) -> impl Future<Item=BufferBundle, Error=Error> + Send {
+        let buffer_size = (D::stride() * points.len()) as u64;
         BufferBundle::create_staged_bundle(adapter, buffer_size, BufferUsage::VERTEX, points)
     }
-    pub fn new_index<'a, D: Index>(adapter: Arc<Adapter<backend::Backend>>, points: &'a [D]) -> impl Future<Item=BufferBundle, Error=Error> + 'a + Send {
+    pub fn new_index<D: Index>(adapter: Arc<Adapter<backend::Backend>>, points: Arc<Vec<D>>) -> impl Future<Item=BufferBundle, Error=Error> + Send {
         let buffer_size = (size_of::<D>() * points.len()) as u64;
         BufferBundle::create_staged_bundle(adapter, buffer_size, BufferUsage::INDEX, points)
     }

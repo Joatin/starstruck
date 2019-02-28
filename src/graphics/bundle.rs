@@ -22,7 +22,7 @@ pub struct Bundle<I: Index, V: Vertex> {
 }
 
 impl<I: Index, V: Vertex> Bundle<I, V> {
-    pub(crate) fn new<'a>(adapter: Arc<Adapter<backend::Backend>>, indexes: &'a [I], vertexes: &'a [V]) -> impl Future<Item=Self, Error=Error> + 'a + Send
+    pub(crate) fn new(adapter: Arc<Adapter<backend::Backend>>, indexes: Arc<Vec<I>>, vertexes: Arc<Vec<V>>) -> impl Future<Item=Self, Error=Error> + Send
     {
         let index_count = indexes.len() as u32;
         let index_buffer_bundle = BufferBundle::new_index(Arc::clone(&adapter), indexes);

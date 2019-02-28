@@ -163,8 +163,8 @@ impl SwapchainBundle {
         })
     }
 
-    pub fn render_pass(&self) -> Arc<ManuallyDrop<<backend::Backend as Backend>::RenderPass>> {
-        Arc::clone(&self.render_pass)
+    pub fn render_pass(&self) -> &<backend::Backend as Backend>::RenderPass {
+        &self.render_pass
     }
 
     pub fn render_area(&self) -> Extent2D {
@@ -424,7 +424,7 @@ impl Drop for SwapchainBundle {
             use core::ptr::read;
             self
                 .device
-                .destroy_render_pass(ManuallyDrop::into_inner(Arc::try_unwrap(read(&self.render_pass)).unwrap()));
+                .destroy_render_pass(ManuallyDrop::into_inner(read(&*self.render_pass)));
             self
                 .device
                 .destroy_swapchain(ManuallyDrop::into_inner(read(&self.swapchain)));

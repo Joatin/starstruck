@@ -7,20 +7,43 @@ use crate::primitive::Index;
 use crate::graphics::BundleEncoderExt;
 use crate::graphics::Pipeline;
 use crate::graphics::PipelineEncoderExt;
+use vek::Mat4;
+use crate::internal::Mat4Ext;
+use gfx_hal::pso::ShaderStageFlags;
+use vek::geom::FrustumPlanes;
+use crate::graphics::Camera;
+use gfx_hal::window::Extent2D;
 
 pub struct Context<'a> {
     setup_context: &'a SetupContext,
     input: UserInput,
-    encoder: RenderPassInlineEncoder<'a, backend::Backend>
+    encoder: RenderPassInlineEncoder<'a, backend::Backend>,
+    base_projection: Mat4<f32>,
+    render_area: Extent2D
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn new(input: UserInput, setup_context: &'a SetupContext, encoder: RenderPassInlineEncoder<'a, backend::Backend>) -> Self {
+    pub(crate) fn new(input: UserInput, setup_context: &'a SetupContext, encoder: RenderPassInlineEncoder<'a, backend::Backend>, render_area: Extent2D) -> Self {
+
+        let ratio = (((render_area.width as f32 / render_area.height as f32) -1.0) / 2.0) + 1.0;
         Context {
             input,
             encoder,
-            setup_context
+            setup_context,
+            render_area,
+            base_projection: Mat4::<f32>::orthographic_lh_zo(FrustumPlanes {
+                left: ratio * -1.0,
+                right: ratio,
+                bottom: -1.,
+                top: 1.,
+                near: 0.,
+                far: 100.
+            })
         }
+    }
+
+    pub fn render_area(&self) -> Extent2D {
+        self.render_area
     }
 
     pub fn input(&self) -> &UserInput {
@@ -36,6 +59,25 @@ impl<'a> Context<'a> {
     {
         self.encoder.bind_pipeline(pipeline);
         self.encoder.bind_bundle(bundle);
-        unsafe { self.encoder.draw_indexed(0..bundle.index_count(), 0, 0..1) }
+
+        unsafe {
+            let mat_data = self.base_projection.as_push_constant_data();
+            self.encoder.bind_push_constant(pipeline, ShaderStageFlags::VERTEX, 0, mat_data);
+            self.encoder.draw_indexed(0..bundle.index_count(), 0, 0..1)
+        }
+    }
+
+    pub fn draw_with_camera<I: Index, V: Vertex, C: Camera>(&mut self, pipeline: &Pipeline<V> , bundle: &Bundle<I, V>, camera: &C)
+        where RenderPassInlineEncoder<'a, backend::Backend>: BundleEncoderExt<I, V>
+    {
+        self.encoder.bind_pipeline(pipeline);
+        self.encoder.bind_bundle(bundle);
+
+        unsafe {
+            let mut mat = camera.projection_view();
+            let mat_data = mat.as_push_constant_data();
+            self.encoder.bind_push_constant(pipeline, ShaderStageFlags::VERTEX, 0, mat_data);
+            self.encoder.draw_indexed(0..bundle.index_count(), 0, 0..1)
+        }
     }
 }

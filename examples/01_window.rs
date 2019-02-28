@@ -8,8 +8,11 @@ fn main() {
     TermLogger::init(LevelFilter::Info, Config::default()).unwrap();
 
     // The actual application
-    let starstruck = Starstruck::init("01 Simple Window").unwrap();
-    starstruck.start(move |_context| {
-        Ok(())
-    }).unwrap();
+    let starstruck = Starstruck::init(
+        "01 Simple Window",
+        |_| Ok(()),
+        |_| Ok(())
+    ).unwrap();
+
+    starstruck.run().unwrap();
 }

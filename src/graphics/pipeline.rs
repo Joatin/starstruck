@@ -1,16 +1,15 @@
 use crate::graphics::ShaderSet;
 use crate::internal::graphics::PipelineBundle;
 use failure::Error;
-use gfx_hal::Backend;
 use crate::primitive::Vertex;
 use std::marker::PhantomData;
 use futures::Future;
 use futures::lazy;
-use gfx_hal::window::Extent2D;
 use std::sync::Arc;
-use std::mem::ManuallyDrop;
 use gfx_hal::command::RenderPassInlineEncoder;
 use std::sync::RwLock;
+use gfx_hal::pso::ShaderStageFlags;
+use crate::internal::graphics::GraphicsState;
 
 pub struct Pipeline<V: Vertex> {
     bundle: RwLock<Option<PipelineBundle>>,
@@ -20,10 +19,15 @@ pub struct Pipeline<V: Vertex> {
 
 impl<V: Vertex> Pipeline<V> {
 
-    pub fn new<'a>(device: Arc<backend::Device>, render_pass: Arc<ManuallyDrop<<backend::Backend as Backend>::RenderPass>>, render_area: Extent2D, shader_set: ShaderSet) -> impl Future<Item=Self, Error=Error> + 'a + Send {
+    pub fn new<'a>(state: Arc<GraphicsState>, shader_set: ShaderSet) -> impl Future<Item=Self, Error=Error> + 'a + Send {
         let shader_set_clone = shader_set.clone();
         lazy(move || {
-            PipelineBundle::new::<V>(device, render_pass, render_area, &shader_set_clone)
+            let render_area = state.render_area();
+            let device = state.device();
+
+            state.render_pass(move |render_pass| {
+                PipelineBundle::new::<V>(device, render_pass, render_area, &shader_set_clone)
+            })
         }).map(move |bundle| {
             Self {
                 bundle: RwLock::new(Some(bundle)),
@@ -36,7 +40,7 @@ impl<V: Vertex> Pipeline<V> {
 
 pub trait RecreatePipeline: Sync + Send {
     fn drop_pipeline(&self);
-    fn recreate_pipeline(&self, device: Arc<backend::Device>, render_pass: Arc<ManuallyDrop<<backend::Backend as Backend>::RenderPass>>, render_area: Extent2D) -> Result<(), Error> ;
+    fn recreate_pipeline(&self, state: &GraphicsState) -> Result<(), Error> ;
 }
 
 impl<V: Vertex> RecreatePipeline for Pipeline<V> {
@@ -45,21 +49,39 @@ impl<V: Vertex> RecreatePipeline for Pipeline<V> {
         bundle.take();
     }
 
-    fn recreate_pipeline(&self, device: Arc<backend::Device>, render_pass: Arc<ManuallyDrop<<backend::Backend as Backend>::RenderPass>>, render_area: Extent2D) -> Result<(), Error> {
-        let mut bundle_lock = self.bundle.write().unwrap();
-        let bundle = PipelineBundle::new::<V>(device, render_pass, render_area, &self.shader_set)?;
-        *bundle_lock = Some(bundle);
+    fn recreate_pipeline(&self, state: &GraphicsState) -> Result<(), Error> {
+
+        let render_area = state.render_area();
+        let device = state.device();
+
+        state.render_pass(move |render_pass| {
+            let mut bundle_lock = self.bundle.write().unwrap();
+            let bundle = PipelineBundle::new::<V>(device, render_pass, render_area, &self.shader_set)?;
+            *bundle_lock = Some(bundle);
+            Ok(())
+        })?;
         Ok(())
     }
 }
 
 pub trait PipelineEncoderExt<V: Vertex> {
     fn bind_pipeline(&mut self, pipeline: &Pipeline<V>);
+    unsafe fn bind_push_constant(&mut self, pipeline: &Pipeline<V>, flags: ShaderStageFlags, offset: u32, constants: &[u32]);
 }
 
 impl<'a, V: Vertex> PipelineEncoderExt<V> for RenderPassInlineEncoder<'a, backend::Backend> {
     fn bind_pipeline(&mut self, pipeline: &Pipeline<V>) {
         let bundle = pipeline.bundle.read().unwrap();
         unsafe { self.bind_graphics_pipeline(bundle.as_ref().unwrap().pipeline()) }
+    }
+    unsafe fn bind_push_constant(&mut self, pipeline: &Pipeline<V>, flags: ShaderStageFlags, offset: u32, constants: &[u32]) {
+        let pipe = pipeline.bundle.read().unwrap();
+        let bundle = pipe.as_ref().expect("Bundle can only be None during swapchain recreation");
+        self.push_graphics_constants(
+            bundle.layout(),
+            flags,
+            offset,
+            constants
+        );
     }
 }

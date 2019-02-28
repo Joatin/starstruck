@@ -25,7 +25,7 @@ pub struct GraphicsState {
     adapter: Arc<Adapter<backend::Backend>>,
     _surface: RwLock<<backend::Backend as Backend>::Surface>,
     _instance: ManuallyDrop<backend::Instance>,
-    swapchain: RwLock<ManuallyDrop<SwapchainBundle>>
+    swapchain: RwLock<SwapchainBundle>
 }
 
 impl GraphicsState {
@@ -47,6 +47,7 @@ impl GraphicsState {
             .ok_or_else(|| format_err!("Couldn't find a graphical Adapter!"))?;
 
         info!("Selected gpu: {:?}", adapter.info.name);
+        info!("Selected gpu: {:?}", adapter.physical_device.limits());
 
         // Open A Device and take out a QueueGroup
         let (device, queue_group) = {
@@ -86,7 +87,7 @@ impl GraphicsState {
             adapter: Arc::new(adapter),
             device,
             queue_group: RwLock::new(queue_group),
-            swapchain: RwLock::new(ManuallyDrop::new(swapchain)),
+            swapchain: RwLock::new(swapchain),
             command_pool: RwLock::new(ManuallyDrop::new(command_pool))
         })
     }
@@ -99,9 +100,9 @@ impl GraphicsState {
 
         {
             let mut lock = self.swapchain.write().unwrap();
-            unsafe { ManuallyDrop::drop(&mut *lock) };
-            *lock = ManuallyDrop::new(SwapchainBundle::new(adapter, device, window, surface, command_pool)?);
+            *lock = SwapchainBundle::new(adapter, device, window, surface, command_pool)?;
         }
+        info!("Swapchain recreated");
         Ok(())
     }
 
@@ -125,9 +126,9 @@ impl GraphicsState {
         Arc::clone(&self.device)
     }
 
-    pub fn render_pass(&self) -> Arc<ManuallyDrop<<backend::Backend as Backend>::RenderPass>> {
+    pub fn render_pass<T: FnOnce(&<backend::Backend as Backend>::RenderPass) -> Result<R, Error>, R>(&self, callback: T) -> Result<R, Error> {
         let lock = self.swapchain.read().unwrap();
-        Arc::clone(&lock.render_pass())
+        callback(lock.render_pass())
     }
 
     pub fn render_area(&self) -> Extent2D {
