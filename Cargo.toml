@@ -22,6 +22,7 @@ failure = "0.1.5"
 colored = "1.7"
 futures = "0.1.25"
 tokio = "0.1.15"
+image = "0.21.0"
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies.gfx-backend-vulkan]
 version = "0.1"

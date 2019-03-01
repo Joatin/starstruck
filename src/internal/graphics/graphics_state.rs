@@ -16,22 +16,23 @@ use std::fmt::Formatter;
 use std::sync::Arc;
 use std::sync::RwLock;
 use winit::Window;
+use gfx_hal::Limits;
 
-pub struct GraphicsState {
-    command_pool: RwLock<ManuallyDrop<CommandPool<backend::Backend, Graphics>>>,
-    queue_group: RwLock<QueueGroup<backend::Backend, Graphics>>,
-    device: Arc<backend::Device>,
-    adapter: Arc<Adapter<backend::Backend>>,
-    _surface: RwLock<<backend::Backend as Backend>::Surface>,
-    _instance: ManuallyDrop<backend::Instance>,
-    swapchain: RwLock<SwapchainBundle>,
+pub struct GraphicsState<B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+    command_pool: RwLock<ManuallyDrop<CommandPool<B, Graphics>>>,
+    queue_group: RwLock<QueueGroup<B, Graphics>>,
+    device: Arc<D>,
+    adapter: Adapter<B>,
+    _surface: RwLock<B::Surface>,
+    _instance: ManuallyDrop<I>,
+    swapchain: RwLock<SwapchainBundle<B, D>>,
+    limits: Limits
 }
 
-impl GraphicsState {
+impl GraphicsState<backend::Backend, backend::Device, backend::Instance> {
     pub fn new(title: &str, window: &Window) -> Result<Self, Error> {
         let instance = backend::Instance::create(title, 1);
         let mut surface = instance.create_surface(window);
-
         let adapters = instance.enumerate_adapters();
 
         info!(
@@ -49,8 +50,10 @@ impl GraphicsState {
             })
             .ok_or_else(|| format_err!("Couldn't find a graphical Adapter!"))?;
 
+        let limits = adapter.physical_device.limits();
+
         info!("Selected gpu: {:?}", adapter.info.name);
-        info!("Selected gpu: {:?}", adapter.physical_device.limits());
+        info!("Selected gpu: {:?}", &limits);
 
         // Open A Device and take out a QueueGroup
         let (device, queue_group) = {
@@ -67,7 +70,7 @@ impl GraphicsState {
                     .physical_device
                     .open(&[(&queue_family, &[1.0; 1])])?
             };
-            let queue_group = queues
+            let queue_group: QueueGroup<backend::Backend, Graphics> = queues
                 .take::<Graphics>(queue_family.id())
                 .ok_or_else(|| format_err!("Couldn't take ownership of the QueueGroup!"))?;
             if !queue_group.queues.is_empty() {
@@ -77,16 +80,17 @@ impl GraphicsState {
                     "The QueueGroup did not have any CommandQueues available!"
                 ))
             }?;
+
             (Arc::new(device), queue_group)
         };
 
         // Create Our CommandPool
-        let mut command_pool = unsafe {
+        let mut command_pool: CommandPool<backend::Backend, Graphics> = unsafe {
             device
                 .create_command_pool_typed(&queue_group, CommandPoolCreateFlags::RESET_INDIVIDUAL)?
         };
 
-        let swapchain = SwapchainBundle::new(
+        let swapchain = SwapchainBundle::<backend::Backend, backend::Device>::new(
             &adapter,
             Arc::clone(&device),
             window,
@@ -97,12 +101,19 @@ impl GraphicsState {
         Ok(Self {
             _instance: ManuallyDrop::new(instance),
             _surface: RwLock::new(surface),
-            adapter: Arc::new(adapter),
+            adapter: adapter,
             device,
             queue_group: RwLock::new(queue_group),
             swapchain: RwLock::new(swapchain),
             command_pool: RwLock::new(ManuallyDrop::new(command_pool)),
+            limits
         })
+    }
+}
+
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> GraphicsState<B, D, I> {
+    pub fn limits(&self) -> &Limits {
+        &self.limits
     }
 
     pub fn recreate_swapchain(&self, window: &Window) -> Result<(), Error> {
@@ -120,7 +131,7 @@ impl GraphicsState {
     }
 
     pub fn next_encoder<
-        F: FnOnce(RenderPassInlineEncoder<backend::Backend>) -> Result<(), Error>,
+        F: FnOnce(RenderPassInlineEncoder<B>) -> Result<(), Error>,
     >(
         &self,
         callback: F,
@@ -136,16 +147,16 @@ impl GraphicsState {
         lock.present_swapchain(&mut self.queue_group.write().unwrap())
     }
 
-    pub fn adapter(&self) -> Arc<Adapter<backend::Backend>> {
-        Arc::clone(&self.adapter)
+    pub fn adapter(&self) -> &Adapter<B> {
+        &self.adapter
     }
 
-    pub fn device(&self) -> Arc<backend::Device> {
+    pub fn device(&self) -> Arc<D> {
         Arc::clone(&self.device)
     }
 
     pub fn render_pass<
-        T: FnOnce(&<backend::Backend as Backend>::RenderPass) -> Result<R, Error>,
+        T: FnOnce(&B::RenderPass) -> Result<R, Error>,
         R,
     >(
         &self,
@@ -161,7 +172,7 @@ impl GraphicsState {
     }
 }
 
-impl Debug for GraphicsState {
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> Debug for GraphicsState<B, D, I> {
     fn fmt(&self, formatter: &mut Formatter) -> core::result::Result<(), std::fmt::Error> {
         formatter.write_str("Graphics State")?;
         Ok(())

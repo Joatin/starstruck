@@ -4,13 +4,13 @@ use std::mem::ManuallyDrop;
 use std::ops::Deref;
 use std::sync::Arc;
 
-pub struct FutureFence {
-    fence: ManuallyDrop<<backend::Backend as Backend>::Fence>,
-    device: Arc<backend::Device>,
+pub struct FutureFence<B: Backend, D: Device<B>> {
+    fence: ManuallyDrop<B::Fence>,
+    device: Arc<D>,
 }
 
-impl FutureFence {
-    pub fn new(fence: <backend::Backend as Backend>::Fence, device: Arc<backend::Device>) -> Self {
+impl<B: Backend, D: Device<B>> FutureFence<B, D> {
+    pub fn new(fence: B::Fence, device: Arc<D>) -> Self {
         Self {
             fence: ManuallyDrop::new(fence),
             device,
@@ -18,7 +18,7 @@ impl FutureFence {
     }
 }
 
-impl Drop for FutureFence {
+impl<B: Backend, D: Device<B>> Drop for FutureFence<B, D> {
     fn drop(&mut self) {
         use core::ptr::read;
         unsafe {
@@ -28,18 +28,18 @@ impl Drop for FutureFence {
     }
 }
 
-pub trait FenceExt {
-    fn into_promise(self, device: Arc<backend::Device>) -> FutureFence;
+pub trait FenceExt<B: Backend, D: Device<B>> {
+    fn into_promise(self, device: Arc<D>) -> FutureFence<B, D>;
 }
 
-impl FenceExt for <backend::Backend as Backend>::Fence {
-    fn into_promise(self, device: Arc<backend::Device>) -> FutureFence {
+impl<B: Backend, D: Device<B>> FenceExt<B, D> for B::Fence {
+    fn into_promise(self, device: Arc<D>) -> FutureFence<B, D> {
         FutureFence::new(self, device)
     }
 }
 
-impl Deref for FutureFence {
-    type Target = <backend::Backend as Backend>::Fence;
+impl<B: Backend, D: Device<B>> Deref for FutureFence<B, D> {
+    type Target = B::Fence;
 
     fn deref(&self) -> &Self::Target {
         &self.fence

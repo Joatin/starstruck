@@ -12,11 +12,13 @@ use crate::graphics::Bundle;
 use crate::setup_context::CreateBundleFromObj;
 use obj::Obj;
 use obj::SimplePolygon;
-use std::mem::transmute;
 use std::io::BufReader;
 use std::sync::Arc;
 use crate::graphics::Pipeline;
 use failure::Error;
+use gfx_hal::Device;
+use gfx_hal::Backend;
+use gfx_hal::Instance;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct VertexXYZRG {
@@ -57,10 +59,10 @@ impl Vertex for VertexXYZRG {
     }
 }
 
-impl CreateDefaultPipeline<VertexXYZRG> for SetupContext {
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateDefaultPipeline<VertexXYZRG, B, D> for SetupContext<B, D, I> {
     fn create_default_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZRG>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZRG, B, D>>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_rg_default.vert.spv")),
@@ -79,11 +81,11 @@ impl CreateDefaultPipeline<VertexXYZRG> for SetupContext {
     }
 }
 
-impl CreateBundleFromObj<u16, VertexXYZRG> for SetupContext {
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateBundleFromObj<u16, VertexXYZRG, B, D, I> for SetupContext<B, D, I> {
     fn create_bundle_from_obj(
         &self,
         data: &[u8],
-    ) -> Box<Future<Item = Bundle<u16, VertexXYZRG>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Bundle<u16, VertexXYZRG, B, D, I>, Error = Error> + Send> {
         let mut reader = BufReader::new(data);
         match Obj::load_buf(&mut reader) {
             Ok(obj_data) => {

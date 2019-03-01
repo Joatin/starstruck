@@ -17,6 +17,9 @@ use std::io::BufReader;
 use std::mem::size_of;
 use std::mem::transmute;
 use std::sync::Arc;
+use gfx_hal::Backend;
+use gfx_hal::Device;
+use gfx_hal::Instance;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct VertexXYZ {
@@ -47,10 +50,10 @@ impl Vertex for VertexXYZ {
 
 pub type Vertex3D = VertexXYZ;
 
-impl CreateDefaultPipeline<VertexXYZ> for SetupContext {
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateDefaultPipeline<VertexXYZ, B, D> for SetupContext<B, D, I> {
     fn create_default_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZ>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZ, B, D>>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_default.vert.spv")),
@@ -69,11 +72,11 @@ impl CreateDefaultPipeline<VertexXYZ> for SetupContext {
     }
 }
 
-impl CreateBundleFromObj<u16, VertexXYZ> for SetupContext {
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateBundleFromObj<u16, VertexXYZ, B, D, I> for SetupContext<B, D, I> {
     fn create_bundle_from_obj(
         &self,
         data: &[u8],
-    ) -> Box<Future<Item = Bundle<u16, VertexXYZ>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Bundle<u16, VertexXYZ, B, D, I>, Error = Error> + Send> {
         let mut reader = BufReader::new(data);
         match Obj::load_buf(&mut reader) {
             Ok(obj_data) => {

@@ -10,23 +10,21 @@ use gfx_hal::Backend;
 use gfx_hal::Device;
 use gfx_hal::MemoryTypeId;
 use gfx_hal::PhysicalDevice;
-use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
 
-pub struct DepthImage {
-    pub image: ManuallyDrop<<backend::Backend as Backend>::Image>,
+pub struct DepthImage<B: Backend, D: Device<B>> {
+    pub image: ManuallyDrop<B::Image>,
     pub requirements: Requirements,
-    pub memory: ManuallyDrop<<backend::Backend as Backend>::Memory>,
-    pub image_view: ManuallyDrop<<backend::Backend as Backend>::ImageView>,
-    pub device: Arc<backend::Device>,
-    pub phantom: PhantomData<backend::Device>,
+    pub memory: ManuallyDrop<B::Memory>,
+    pub image_view: ManuallyDrop<B::ImageView>,
+    pub device: Arc<D>
 }
 
-impl DepthImage {
+impl<B: Backend, D: Device<B>> DepthImage<B, D> {
     pub fn new(
-        device: Arc<backend::Device>,
-        adapter: &Adapter<backend::Backend>,
+        device: Arc<D>,
+        adapter: &Adapter<B>,
         extent: Extent2D,
     ) -> Result<Self, Error> {
         unsafe {
@@ -70,14 +68,13 @@ impl DepthImage {
                 requirements,
                 memory: ManuallyDrop::new(memory),
                 image_view: ManuallyDrop::new(image_view),
-                device,
-                phantom: PhantomData,
+                device
             })
         }
     }
 }
 
-impl Drop for DepthImage {
+impl<B: Backend, D: Device<B>> Drop for DepthImage<B, D> {
     fn drop(&mut self) {
         use core::ptr::read;
 

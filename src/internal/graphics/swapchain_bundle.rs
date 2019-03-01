@@ -48,30 +48,30 @@ use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use winit::Window;
 
-pub struct SwapchainBundle {
-    device: Arc<backend::Device>,
-    swapchain: ManuallyDrop<<backend::Backend as Backend>::Swapchain>,
-    command_buffers: Vec<CommandBuffer<backend::Backend, Graphics, MultiShot, Primary>>,
-    in_flight_fences: Vec<<backend::Backend as Backend>::Fence>,
-    render_finished_semaphores: Vec<<backend::Backend as Backend>::Semaphore>,
-    image_available_semaphores: Vec<<backend::Backend as Backend>::Semaphore>,
-    image_views: Vec<(<backend::Backend as Backend>::ImageView)>,
-    render_pass: Arc<ManuallyDrop<<backend::Backend as Backend>::RenderPass>>,
-    framebuffers: Vec<<backend::Backend as Backend>::Framebuffer>,
-    depth_images: Vec<DepthImage>,
+pub struct SwapchainBundle<B: Backend, D: Device<B>> {
+    device: Arc<D>,
+    swapchain: ManuallyDrop<B::Swapchain>,
+    command_buffers: Vec<CommandBuffer<B, Graphics, MultiShot, Primary>>,
+    in_flight_fences: Vec<B::Fence>,
+    render_finished_semaphores: Vec<B::Semaphore>,
+    image_available_semaphores: Vec<B::Semaphore>,
+    image_views: Vec<B::ImageView>,
+    render_pass: Arc<ManuallyDrop<B::RenderPass>>,
+    framebuffers: Vec<B::Framebuffer>,
+    depth_images: Vec<DepthImage<B, D>>,
     render_area: Extent2D,
     current_frame: usize,
     image_index: usize,
     frames_in_flight: usize,
 }
 
-impl SwapchainBundle {
+impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
     pub(crate) fn new(
-        adapter: &Adapter<backend::Backend>,
-        device: Arc<backend::Device>,
+        adapter: &Adapter<B>,
+        device: Arc<D>,
         window: &Window,
-        surface: &mut <backend::Backend as Backend>::Surface,
-        command_pool: &mut CommandPool<backend::Backend, Graphics>,
+        surface: &mut B::Surface,
+        command_pool: &mut CommandPool<B, Graphics>,
     ) -> Result<Self, Error> {
         info!("{}", "Creating new swapchain".green());
 
@@ -80,11 +80,11 @@ impl SwapchainBundle {
         let render_pass = Self::create_render_pass(&device, format)?;
 
         let (image_available_semaphores, render_finished_semaphores, in_flight_fences) = {
-            let mut image_available_semaphores: Vec<<backend::Backend as Backend>::Semaphore> =
+            let mut image_available_semaphores: Vec<B::Semaphore> =
                 vec![];
-            let mut render_finished_semaphores: Vec<<backend::Backend as Backend>::Semaphore> =
+            let mut render_finished_semaphores: Vec<B::Semaphore> =
                 vec![];
-            let mut in_flight_fences: Vec<<backend::Backend as Backend>::Fence> = vec![];
+            let mut in_flight_fences: Vec<B::Fence> = vec![];
             for _ in 0..image_count {
                 in_flight_fences.push(device.create_fence(true)?);
                 image_available_semaphores.push(device.create_semaphore()?);
@@ -116,7 +116,7 @@ impl SwapchainBundle {
                         )
                     })
                     .collect::<Result<
-                        Vec<<backend::Backend as Backend>::ImageView>,
+                        Vec<B::ImageView>,
                         gfx_hal::image::ViewError,
                     >>()?
             }
@@ -127,7 +127,7 @@ impl SwapchainBundle {
         let depth_images = image_views
             .iter()
             .map(|_| DepthImage::new(Arc::clone(&device), &adapter, render_area))
-            .collect::<core::result::Result<Vec<DepthImage>, Error>>()?;
+            .collect::<core::result::Result<Vec<DepthImage<B, D>>, Error>>()?;
         let image_extent = gfx_hal::image::Extent {
             width: render_area.width as _,
             height: render_area.height as _,
@@ -142,7 +142,7 @@ impl SwapchainBundle {
                     device.create_framebuffer(&render_pass, attachments, image_extent)
                 })
                 .collect::<Result<
-                    Vec<<backend::Backend as Backend>::Framebuffer>,
+                    Vec<B::Framebuffer>,
                     gfx_hal::device::OutOfMemory,
                 >>()?;
 
@@ -170,7 +170,7 @@ impl SwapchainBundle {
         })
     }
 
-    pub fn render_pass(&self) -> &<backend::Backend as Backend>::RenderPass {
+    pub fn render_pass(&self) -> &B::RenderPass {
         &self.render_pass
     }
 
@@ -180,7 +180,7 @@ impl SwapchainBundle {
 
     pub fn next_encoder(
         &mut self,
-    ) -> Result<RenderPassInlineEncoder<backend::Backend>, CreateEncoderError> {
+    ) -> Result<RenderPassInlineEncoder<B>, CreateEncoderError> {
         let encoder = unsafe {
             let flight_fence = &self.in_flight_fences[self.current_frame];
             self.current_frame = (self.current_frame + 1) % self.frames_in_flight;
@@ -241,7 +241,7 @@ impl SwapchainBundle {
 
     pub fn present_swapchain(
         &mut self,
-        queue_group: &mut QueueGroup<backend::Backend, Graphics>,
+        queue_group: &mut QueueGroup<B, Graphics>,
     ) -> Result<(), Error> {
         unsafe {
             self.command_buffers[self.image_index].finish();
@@ -283,14 +283,14 @@ impl SwapchainBundle {
 
     #[allow(clippy::type_complexity)]
     fn create_swapchain(
-        adapter: &Adapter<backend::Backend>,
-        device: &backend::Device,
+        adapter: &Adapter<B>,
+        device: &D,
         window: &Window,
-        surface: &mut <backend::Backend as Backend>::Surface,
+        surface: &mut B::Surface,
     ) -> Result<
         (
-            <backend::Backend as Backend>::Swapchain,
-            Backbuffer<backend::Backend>,
+            B::Swapchain,
+            Backbuffer<B>,
             Format,
             Extent2D,
             usize,
@@ -390,12 +390,12 @@ impl SwapchainBundle {
     }
 
     fn create_render_pass(
-        device: &backend::Device,
+        device: &D,
         format: Format,
-    ) -> Result<<backend::Backend as Backend>::RenderPass, Error> {
+    ) -> Result<B::RenderPass, Error> {
         let color_attachment = Attachment {
             format: Some(format),
-            samples: 1,
+            samples: 4,
             ops: AttachmentOps {
                 load: AttachmentLoadOp::Clear,
                 store: AttachmentStoreOp::Store,
@@ -405,7 +405,7 @@ impl SwapchainBundle {
         };
         let depth_attachment = Attachment {
             format: Some(Format::D32Float),
-            samples: 1,
+            samples: 4,
             ops: AttachmentOps {
                 load: AttachmentLoadOp::Clear,
                 store: AttachmentStoreOp::DontCare,
@@ -450,7 +450,7 @@ impl SwapchainBundle {
     }
 }
 
-impl Drop for SwapchainBundle {
+impl<B: Backend, D: Device<B>> Drop for SwapchainBundle<B, D> {
     fn drop(&mut self) {
         info!("{}", "Dropping Swapchain".red());
         let _ = self.device.wait_idle();

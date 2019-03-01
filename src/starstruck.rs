@@ -19,6 +19,8 @@ use std::time::Instant;
 use winit::EventsLoop;
 use winit::Window;
 use winit::WindowBuilder;
+use gfx_hal::Backend;
+use gfx_hal::Instance;
 
 const BANNER: &str = "
 
@@ -33,19 +35,19 @@ $$\\   $$ |  $$ |$$\\ $$  __$$ |$$ |       \\____$$\\   $$ |$$\\ $$ |      $$ | 
 
  ";
 
-pub struct Starstruck<State, RenderCallback> {
+pub struct Starstruck<State, RenderCallback, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
     title: String,
     window: Window,
     events_loop: EventsLoop,
-    graphics_state: Arc<GraphicsState>,
-    setup_context: Arc<SetupContext>,
+    graphics_state: Arc<GraphicsState<B, D, I>>,
+    setup_context: Arc<SetupContext<B, D, I>>,
     setup_callback: Option<Box<Future<Item = State, Error = Error> + Send>>,
     render_callback: RenderCallback,
 }
 
-impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderCallback>
+impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderCallback, backend::Backend, backend::Device, backend::Instance>
 where
-    RenderCallback: FnMut((&mut State, &mut Context)) -> Result<(), Error>,
+    RenderCallback: FnMut((&mut State, &mut Context<backend::Backend, backend::Device, backend::Instance>)) -> Result<(), Error>,
 {
     pub fn init<C, F, FI>(
         title: &str,
@@ -53,7 +55,7 @@ where
         render_callback: RenderCallback,
     ) -> Result<Self, Error>
     where
-        C: Send + 'static + FnOnce(Arc<SetupContext>) -> F,
+        C: Send + 'static + FnOnce(Arc<SetupContext<backend::Backend, backend::Device, backend::Instance>>) -> F,
         F: IntoFuture<Future = FI, Item = State, Error = Error> + 'static,
         FI: Future<Item = State, Error = Error> + Send + 'static,
     {
@@ -169,7 +171,7 @@ where
     }
 }
 
-impl<State, RenderCallback> Debug for Starstruck<State, RenderCallback> {
+impl<State, RenderCallback, B: Backend, D: Device<B>, I: Instance<Backend=B>> Debug for Starstruck<State, RenderCallback, B, D, I> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.title)?;
         write!(f, "Window: {:?}", self.window)?;

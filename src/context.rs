@@ -13,20 +13,23 @@ use gfx_hal::pso::ShaderStageFlags;
 use gfx_hal::window::Extent2D;
 use vek::geom::FrustumPlanes;
 use vek::Mat4;
+use gfx_hal::Backend;
+use gfx_hal::Device;
+use gfx_hal::Instance;
 
-pub struct Context<'a> {
-    setup_context: &'a SetupContext,
+pub struct Context<'a, B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend=B> = backend::Instance> {
+    setup_context: &'a SetupContext<B, D, I>,
     input: UserInput,
-    encoder: RenderPassInlineEncoder<'a, backend::Backend>,
+    encoder: RenderPassInlineEncoder<'a, B>,
     base_projection: Mat4<f32>,
     render_area: Extent2D,
 }
 
-impl<'a> Context<'a> {
+impl<'a, B: Backend, D: Device<B>, I: Instance<Backend=B>> Context<'a, B, D, I> {
     pub(crate) fn new(
         input: UserInput,
-        setup_context: &'a SetupContext,
-        encoder: RenderPassInlineEncoder<'a, backend::Backend>,
+        setup_context: &'a SetupContext<B, D, I>,
+        encoder: RenderPassInlineEncoder<'a, B>,
         render_area: Extent2D,
     ) -> Self {
         let ratio = (((render_area.width as f32 / render_area.height as f32) - 1.0) / 2.0) + 1.0;
@@ -54,13 +57,13 @@ impl<'a> Context<'a> {
         &self.input
     }
 
-    pub fn setup_context(&self) -> &SetupContext {
+    pub fn setup_context(&self) -> &SetupContext<B, D, I> {
         self.setup_context
     }
 
-    pub fn draw<I: Index, V: Vertex>(&mut self, pipeline: &Pipeline<V>, bundle: &Bundle<I, V>)
+    pub fn draw<In: Index, V: Vertex>(&mut self, pipeline: &Pipeline<V, B, D>, bundle: &Bundle<In, V, B, D, I>)
     where
-        RenderPassInlineEncoder<'a, backend::Backend>: BundleEncoderExt<I, V>,
+        RenderPassInlineEncoder<'a, B>: BundleEncoderExt<In, V, B, D, I>,
     {
         self.encoder.bind_pipeline(pipeline);
         self.encoder.bind_bundle(bundle);
@@ -73,13 +76,13 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn draw_with_camera<I: Index, V: Vertex, C: Camera>(
+    pub fn draw_with_camera<In: Index, V: Vertex>(
         &mut self,
-        pipeline: &Pipeline<V>,
-        bundle: &Bundle<I, V>,
-        camera: &C,
+        pipeline: &Pipeline<V, B, D>,
+        bundle: &Bundle<In, V, B, D, I>,
+        camera: &Camera
     ) where
-        RenderPassInlineEncoder<'a, backend::Backend>: BundleEncoderExt<I, V>,
+        RenderPassInlineEncoder<'a, B>: BundleEncoderExt<In, V, B, D, I>,
     {
         self.encoder.bind_pipeline(pipeline);
         self.encoder.bind_bundle(bundle);

@@ -11,6 +11,9 @@ use gfx_hal::pso::AttributeDesc;
 use gfx_hal::pso::Element;
 use std::mem::size_of;
 use std::sync::Arc;
+use gfx_hal::Backend;
+use gfx_hal::Device;
+use gfx_hal::Instance;
 
 /// A vertex with two floats. This is often used to represent a 2D position
 ///
@@ -51,10 +54,10 @@ impl Vertex for VertexXY {
 
 pub type Vertex2D = VertexXY;
 
-impl CreateDefaultPipeline<VertexXY> for SetupContext {
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateDefaultPipeline<VertexXY, B, D> for SetupContext<B, D, I> {
     fn create_default_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXY>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Arc<Pipeline<VertexXY, B, D>>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xy_default.vert.spv")),

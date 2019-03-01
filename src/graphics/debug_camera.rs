@@ -4,6 +4,9 @@ use vek::geom::FrustumPlanes;
 use vek::mat::Mat4;
 use vek::vec::Vec3;
 use winit::VirtualKeyCode;
+use gfx_hal::Instance;
+use gfx_hal::Device;
+use gfx_hal::Backend;
 
 #[derive(Debug, Clone, Copy)]
 pub struct DebugCamera {
@@ -48,7 +51,7 @@ impl DebugCamera {
         self.position = pos;
     }
 
-    pub fn update_from_context(&mut self, context: &Context) {
+    pub fn update_from_context<B: Backend, D: Device<B>, I: Instance<Backend=B>>(&mut self, context: &Context<B, D, I>) {
         let input = context.input();
 
         // Update projections

@@ -9,52 +9,60 @@ use failure::Error;
 use futures::Future;
 use std::sync::Arc;
 use std::sync::Mutex;
+use crate::graphics::Texture;
+use gfx_hal::Backend;
+use gfx_hal::Device;
+use gfx_hal::Instance;
 
-pub struct SetupContext {
-    state: Arc<GraphicsState>,
-    pipelines: Arc<Mutex<Vec<Arc<RecreatePipeline>>>>,
+pub struct SetupContext<B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend=B> = backend::Instance> {
+    state: Arc<GraphicsState<B, D, I>>,
+    pipelines: Arc<Mutex<Vec<Arc<RecreatePipeline<B, D, I>>>>>,
 }
 
-impl SetupContext {
-    pub(crate) fn new(state: Arc<GraphicsState>) -> Self {
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> SetupContext<B, D, I> {
+    pub(crate) fn new(state: Arc<GraphicsState<B, D, I>>) -> Self {
         Self {
             state,
             pipelines: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    pub fn create_bundle<I: Index, V: Vertex>(
+    pub fn create_bundle<In: Index, V: Vertex>(
         &self,
-        indexes: &'static [I],
+        indexes: &'static [In],
         vertexes: &'static [V],
-    ) -> impl Future<Item = Bundle<I, V>, Error = Error> + Send {
+    ) -> impl Future<Item = Bundle<In, V, B, D, I>, Error = Error> + Send {
         Bundle::new(
-            self.state.adapter(),
+            Arc::clone(&self.state),
             Arc::new(Vec::from(indexes)),
             Arc::new(Vec::from(vertexes)),
         )
     }
 
-    pub(crate) fn create_bundle_owned<I: Index, V: Vertex>(
+    pub(crate) fn create_bundle_owned<In: Index, V: Vertex>(
         &self,
-        indexes: Arc<Vec<I>>,
+        indexes: Arc<Vec<In>>,
         vertexes: Arc<Vec<V>>,
-    ) -> impl Future<Item = Bundle<I, V>, Error = Error> + Send {
-        Bundle::new(self.state.adapter(), indexes, vertexes)
+    ) -> impl Future<Item = Bundle<In, V, B, D, I>, Error = Error> + Send {
+        Bundle::new(Arc::clone(&self.state), indexes, vertexes)
     }
 
     pub fn create_pipeline<V: 'static + Vertex>(
         &self,
         shader_set: ShaderSet,
-    ) -> impl Future<Item = Arc<Pipeline<V>>, Error = Error> + Send {
+    ) -> impl Future<Item = Arc<Pipeline<V, B, D>>, Error = Error> + Send {
         let pipelines_mutex = Arc::clone(&self.pipelines);
 
         Pipeline::new(Arc::clone(&self.state), shader_set).map(move |pipeline| {
             let result = Arc::new(pipeline);
             let mut pipelines = pipelines_mutex.lock().unwrap();
-            pipelines.push(Arc::clone(&result) as Arc<RecreatePipeline>);
+            pipelines.push(Arc::clone(&result) as Arc<RecreatePipeline<B, D, I>>);
             result
         })
+    }
+
+    pub fn create_texture(&self, image_data: &'static [u8]) -> impl Future<Item = Texture<B, D, I>, Error = Error> + Send {
+        Texture::new(Arc::clone(&self.state), image_data)
     }
 
     pub fn drop_swapchain_dependant_data(&self) {
@@ -74,14 +82,14 @@ impl SetupContext {
     }
 }
 
-pub trait CreateDefaultPipeline<V: Vertex> {
+pub trait CreateDefaultPipeline<V: Vertex, B: Backend, D: Device<B>> {
     fn create_default_pipeline(&self)
-        -> Box<Future<Item = Arc<Pipeline<V>>, Error = Error> + Send>;
+        -> Box<Future<Item = Arc<Pipeline<V, B, D>>, Error = Error> + Send>;
 }
 
-pub trait CreateBundleFromObj<I: Index, V: Vertex> {
+pub trait CreateBundleFromObj<In: Index, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
     fn create_bundle_from_obj(
         &self,
         data: &[u8],
-    ) -> Box<Future<Item = Bundle<I, V>, Error = Error> + Send>;
+    ) -> Box<Future<Item = Bundle<In, V, B, D, I>, Error = Error> + Send>;
 }
