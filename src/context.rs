@@ -61,7 +61,7 @@ impl<'a, B: Backend, D: Device<B>, I: Instance<Backend=B>> Context<'a, B, D, I> 
         self.setup_context
     }
 
-    pub fn draw<In: Index, V: Vertex>(&mut self, pipeline: &Pipeline<V, B, D>, bundle: &Bundle<In, V, B, D, I>)
+    pub fn draw<In: Index, V: Vertex>(&mut self, pipeline: &Pipeline<V, B, D, I>, bundle: &Bundle<In, V, B, D, I>)
     where
         RenderPassInlineEncoder<'a, B>: BundleEncoderExt<In, V, B, D, I>,
     {
@@ -78,7 +78,7 @@ impl<'a, B: Backend, D: Device<B>, I: Instance<Backend=B>> Context<'a, B, D, I> 
 
     pub fn draw_with_camera<In: Index, V: Vertex>(
         &mut self,
-        pipeline: &Pipeline<V, B, D>,
+        pipeline: &Pipeline<V, B, D, I>,
         bundle: &Bundle<In, V, B, D, I>,
         camera: &Camera
     ) where

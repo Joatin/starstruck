@@ -22,6 +22,7 @@ use futures::lazy;
 use gfx_hal::image::Layout;
 use gfx_hal::pso::PipelineStage;
 use gfx_hal::pool::CommandPoolCreateFlags;
+use colored::*;
 
 
 pub struct TextureBundle<B: Backend, D: Device<B>, I: Instance<Backend=B>> {
@@ -49,91 +50,98 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> TextureBundle<B, D, I> {
         let row_alignment_mask = limits.min_buffer_copy_pitch_alignment as u32 - 1;
         let row_pitch = ((row_size as u32 + row_alignment_mask) & !row_alignment_mask) as usize;
         debug_assert!(row_pitch as usize >= row_size);
-        let required_bytes = (row_pitch * image.height() as usize) as _;
 
         let width = image.width();
         let height = image.height();
 
+        info!(
+            "{} {}",
+            "Allocating new texture with dimensions: ".green(),
+            format!("{:?}x{:?}", width, height).yellow()
+        );
 
-        BufferBundle::<B, D, I, CPU, image::Rgba<u8>>::new(
-            Arc::clone(&state),
-            required_bytes,
-            BufferUsage::TRANSFER_SRC
-        )
-            .and_then(move |bundle: BufferBundle<B, D, I, CPU, image::Rgba<u8>>| {
-                bundle.write_image_data(image, limits)
-            })
-            .and_then(move |_bundle| {
-                unsafe {
-                    let mut the_image = state.device()
-                        .create_image(
-                            gfx_hal::image::Kind::D2(width, height, 1, 1),
-                            1,
-                            Format::Rgba8Srgb,
-                            gfx_hal::image::Tiling::Optimal,
-                            gfx_hal::image::Usage::TRANSFER_DST | gfx_hal::image::Usage::SAMPLED,
-                            gfx_hal::image::ViewCapabilities::empty(),
-                        )?;
+        lazy(move || {
+            unsafe {
+                let mut the_image = state.device()
+                    .create_image(
+                        gfx_hal::image::Kind::D2(width, height, 1, 1),
+                        1,
+                        Format::Rgba8Srgb,
+                        gfx_hal::image::Tiling::Optimal,
+                        gfx_hal::image::Usage::TRANSFER_DST | gfx_hal::image::Usage::SAMPLED,
+                        gfx_hal::image::ViewCapabilities::empty(),
+                    )?;
 
-                    let requirements = state.device().get_image_requirements(&the_image);
-                    let memory_type_id = state.adapter()
-                        .physical_device
-                        .memory_properties()
-                        .memory_types
-                        .iter()
-                        .enumerate()
-                        .find(|&(id, memory_type)| {
-                            // BIG NOTE: THIS IS DEVICE LOCAL NOT CPU VISIBLE
-                            requirements.type_mask & (1 << id) != 0
-                                && memory_type.properties.contains(Properties::DEVICE_LOCAL)
-                        })
-                        .map(|(id, _)| MemoryTypeId(id))
-                        .ok_or(format_err!("No queue group found"))?;
-                    let memory = state.device()
-                        .allocate_memory(memory_type_id, requirements.size)?;
-                    state.device()
-                        .bind_image_memory(&memory, 0, &mut the_image)?;
-
-                    let image_view = state.device()
-                        .create_image_view(
-                            &the_image,
-                            gfx_hal::image::ViewKind::D2,
-                            Format::Rgba8Srgb,
-                            gfx_hal::format::Swizzle::NO,
-                            SubresourceRange {
-                                aspects: Aspects::COLOR,
-                                levels: 0..1,
-                                layers: 0..1,
-                            },
-                        )?;
-                    let sampler = state.device()
-                        .create_sampler(gfx_hal::image::SamplerInfo::new(
-                            gfx_hal::image::Filter::Nearest,
-                            gfx_hal::image::WrapMode::Tile,
-                        ))?;
-
-                    Ok(Self {
-                        image: ManuallyDrop::new(the_image),
-                        requirements,
-                        memory: ManuallyDrop::new(memory),
-                        image_view: ManuallyDrop::new(image_view),
-                        sampler: ManuallyDrop::new(sampler),
-                        state,
-                        width,
-                        height,
-                        row_pitch,
-                        pixel_size
+                let requirements = state.device().get_image_requirements(&the_image);
+                let memory_type_id = state.adapter()
+                    .physical_device
+                    .memory_properties()
+                    .memory_types
+                    .iter()
+                    .enumerate()
+                    .find(|&(id, memory_type)| {
+                        // BIG NOTE: THIS IS DEVICE LOCAL NOT CPU VISIBLE
+                        requirements.type_mask & (1 << id) != 0
+                            && memory_type.properties.contains(Properties::DEVICE_LOCAL)
                     })
-                }
-            })
+                    .map(|(id, _)| MemoryTypeId(id))
+                    .ok_or(format_err!("No queue group found"))?;
+                let memory = state.device()
+                    .allocate_memory(memory_type_id, requirements.size)?;
+                state.device()
+                    .bind_image_memory(&memory, 0, &mut the_image)?;
+
+                let image_view = state.device()
+                    .create_image_view(
+                        &the_image,
+                        gfx_hal::image::ViewKind::D2,
+                        Format::Rgba8Srgb,
+                        gfx_hal::format::Swizzle::NO,
+                        SubresourceRange {
+                            aspects: Aspects::COLOR,
+                            levels: 0..1,
+                            layers: 0..1,
+                        },
+                    )?;
+                let sampler = state.device()
+                    .create_sampler(gfx_hal::image::SamplerInfo::new(
+                        gfx_hal::image::Filter::Nearest,
+                        gfx_hal::image::WrapMode::Tile,
+                    ))?;
+
+                Ok(Self {
+                    image: ManuallyDrop::new(the_image),
+                    requirements,
+                    memory: ManuallyDrop::new(memory),
+                    image_view: ManuallyDrop::new(image_view),
+                    sampler: ManuallyDrop::new(sampler),
+                    state,
+                    width,
+                    height,
+                    row_pitch,
+                    pixel_size
+                })
+            }
+        }).and_then(move |result| {
+            result.import_data(image)
+        })
     }
 
 
-    fn import_data_from_bundle(
+    fn import_data(
         self,
-        mut bundle: BufferBundle<B, D, I, CPU, image::Rgba<u8>>
+        mut image: RgbaImage
     ) -> impl Future<Item=Self, Error=Error> {
-        lazy(move || {
+        let required_bytes = (self.row_pitch * self.height as usize) as _;
+        let limits = *self.state.limits();
+
+        BufferBundle::<B, D, I, CPU, image::Rgba<u8>>::new(
+            Arc::clone(&self.state),
+            required_bytes,
+            BufferUsage::TRANSFER_SRC
+        ).and_then(move |bundle: BufferBundle<B, D, I, CPU, image::Rgba<u8>>| {
+            bundle.write_image_data(image, limits)
+        }).and_then(move |mut bundle| {
             unsafe {
                 let mut pool = self.state.device().create_command_pool_typed(&bundle.queue_group, CommandPoolCreateFlags::TRANSIENT)?;
 
@@ -161,7 +169,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> TextureBundle<B, D, I> {
                     &[image_barrier],
                 );
 
-
+                info!("Copying bundle to texture");
                 cmd_buffer.copy_buffer_to_image(
                     &bundle.buffer,
                     &self.image,
@@ -223,11 +231,25 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> TextureBundle<B, D, I> {
             }
         })
     }
+
+    pub fn sampler(&self) -> &B::Sampler {
+        &self.sampler
+    }
+
+    pub fn image_view(&self) -> &B::ImageView {
+        &self.image_view
+    }
 }
 
 impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> Drop for TextureBundle<B, D, I> {
     fn drop(&mut self) {
         use core::ptr::read;
+
+        info!(
+            "{}",
+            "Dropping texture".red()
+        );
+
         let device = self.state.device();
         unsafe {
             device.destroy_sampler(ManuallyDrop::into_inner(read(&self.sampler)));

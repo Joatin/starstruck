@@ -50,21 +50,23 @@ impl Vertex for VertexXYZ {
 
 pub type Vertex3D = VertexXYZ;
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateDefaultPipeline<VertexXYZ, B, D> for SetupContext<B, D, I> {
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateDefaultPipeline<VertexXYZ, B, D, I> for SetupContext<B, D, I> {
     fn create_default_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZ, B, D>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZ, B, D, I>>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_default.vert.spv")),
-                constant_byte_size: 16,
+                push_constant_floats: 16,
+                bindings: vec![]
             },
             hull: None,
             domain: None,
             geometry: None,
             fragment: Some(ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_default.frag.spv")),
-                constant_byte_size: 0,
+                push_constant_floats: 0,
+                bindings: vec![]
             }),
         };
 

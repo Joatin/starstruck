@@ -19,6 +19,8 @@ use failure::Error;
 use gfx_hal::Device;
 use gfx_hal::Backend;
 use gfx_hal::Instance;
+use crate::setup_context::CreateTexturedPipeline;
+use gfx_hal::pso::DescriptorType;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct VertexXYZRG {
@@ -59,21 +61,26 @@ impl Vertex for VertexXYZRG {
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateDefaultPipeline<VertexXYZRG, B, D> for SetupContext<B, D, I> {
-    fn create_default_pipeline(
+impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateTexturedPipeline<VertexXYZRG, B, D, I> for SetupContext<B, D, I> {
+    fn create_textured_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZRG, B, D>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZRG, B, D, I>>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
-                spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_rg_default.vert.spv")),
-                constant_byte_size: 16,
+                spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_rg_textured.vert.spv")),
+                push_constant_floats: 16,
+                bindings: vec![]
             },
             hull: None,
             domain: None,
             geometry: None,
             fragment: Some(ShaderDescription {
-                spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_rg_default.frag.spv")),
-                constant_byte_size: 0,
+                spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_rg_textured.frag.spv")),
+                push_constant_floats: 0,
+                bindings: vec![
+                    (0, DescriptorType::SampledImage, 1),
+                    (1, DescriptorType::Sampler, 1)
+                ]
             }),
         };
 

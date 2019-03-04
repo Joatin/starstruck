@@ -21,6 +21,10 @@ use winit::Window;
 use winit::WindowBuilder;
 use gfx_hal::Backend;
 use gfx_hal::Instance;
+use crate::internal::menu::MenuManager;
+use crate::internal::menu::InitView;
+use std::thread::sleep;
+use std::time::Duration;
 
 const BANNER: &str = "
 
@@ -42,7 +46,7 @@ pub struct Starstruck<State, RenderCallback, B: Backend, D: Device<B>, I: Instan
     graphics_state: Arc<GraphicsState<B, D, I>>,
     setup_context: Arc<SetupContext<B, D, I>>,
     setup_callback: Option<Box<Future<Item = State, Error = Error> + Send>>,
-    render_callback: RenderCallback,
+    render_callback: RenderCallback
 }
 
 impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderCallback, backend::Backend, backend::Device, backend::Instance>
@@ -83,11 +87,13 @@ where
             graphics_state,
             setup_context: context,
             setup_callback: s_callback,
-            render_callback,
+            render_callback
         })
     }
 
     pub fn run(mut self) -> Result<(), Error> {
+        let initial_view = Arc::new(InitView::new()?);
+        let mut menu_manager = MenuManager::new(Arc::clone(&self.setup_context), initial_view).wait()?;
         let events_loop = &mut self.events_loop;
         let graphics_state = &mut self.graphics_state;
         let setup = self.setup_callback.take().unwrap();
@@ -102,8 +108,11 @@ where
         thread::spawn(move || {
             let now = Instant::now();
             let r: State = tokio::runtime::current_thread::block_on_all(setup).unwrap();
-            let mut d = cloned_data.write().unwrap();
-            d.replace(r);
+            sleep(Duration::from_millis(5000));
+            {
+                let mut d = cloned_data.write().unwrap();
+                d.replace(r);
+            }
             info!(
                 "{}",
                 format!("Setup took {:?} to complete", now.elapsed()).magenta()
@@ -112,8 +121,16 @@ where
 
         let mut recreate_swapchain = false;
 
+        info!("Entering render loop");
         loop {
             let render_area = graphics_state.render_area();
+
+            {
+                let lock = s_data.read().unwrap();
+                if lock.is_some() {
+                    menu_manager.hide_loading_view();
+                }
+            }
 
             if recreate_swapchain {
                 graphics_state.device().wait_idle()?;
@@ -130,7 +147,7 @@ where
                     let mut context =
                         Context::new(user_input_clone, &s_context, encoder, render_area);
 
-                    {
+                    if menu_manager.draw(&mut context)? {
                         let mut guard = s_data.write().unwrap();
                         if let Some(d) = guard.as_mut() {
                             render_callback((d, &mut context))?;

@@ -19,6 +19,7 @@ pub mod errors;
 pub mod graphics;
 pub mod input;
 pub mod primitive;
+pub mod menu;
 
 pub use self::context::*;
 pub use self::setup_context::*;

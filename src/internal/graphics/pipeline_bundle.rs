@@ -37,37 +37,51 @@ use gfx_hal::Primitive;
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use std::marker::PhantomData;
+use crate::internal::graphics::GraphicsState;
+use gfx_hal::Instance;
+use crate::internal::graphics::PipelineLayoutBundle;
+use gfx_hal::pso::DescriptorArrayIndex;
+use gfx_hal::pso::DescriptorBinding;
+use gfx_hal::pso::Descriptor;
 
-pub struct PipelineBundle<B: Backend, D: Device<B>, V: Vertex> {
-    descriptor_layouts: Vec<B::DescriptorSetLayout>,
-    layout: ManuallyDrop<B::PipelineLayout>,
+pub struct PipelineBundle<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+    pipeline_layout: PipelineLayoutBundle<B, D, I>,
     pipeline: ManuallyDrop<B::GraphicsPipeline>,
-    device: Arc<D>,
+    state: Arc<GraphicsState<B, D, I>>,
     phantom: PhantomData<V>
 }
 
-impl<B: Backend, D: Device<B>, V: Vertex> PipelineBundle<B, D, V> {
+impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineBundle<V, B, D, I> {
     pub fn new(
-        device: Arc<D>,
+        state: Arc<GraphicsState<B, D, I>>,
         render_pass: &B::RenderPass,
         render_area: Extent2D,
-        set: &ShaderSet,
+        set: &ShaderSet
     ) -> Result<Self, Error> {
+        let pipeline_layout = PipelineLayoutBundle::new(Arc::clone(&state), set)?;
+
         info!("{}", "Creating new pipeline".green());
 
-        let (descriptor_layouts, layout, pipeline) =
-            Self::create(&device, render_pass, render_area, &set)?;
+        let pipeline =
+            Self::create(&state.device(), render_pass, render_area, &set, pipeline_layout.layout())?;
         Ok(Self {
-            descriptor_layouts,
-            layout: ManuallyDrop::new(layout),
+            pipeline_layout,
             pipeline: ManuallyDrop::new(pipeline),
-            device: Arc::clone(&device),
+            state,
             phantom: PhantomData
         })
     }
 
     pub fn layout(&self) -> &B::PipelineLayout {
-        &self.layout
+        &self.pipeline_layout.layout()
+    }
+
+    pub fn descriptor_set(&self) -> &B::DescriptorSet {
+        &self.pipeline_layout.descriptor_set()
+    }
+
+    pub fn bind_assets(&self, descriptors: Vec<(DescriptorBinding, DescriptorArrayIndex, Descriptor<B>)>) {
+        self.pipeline_layout.bind_assets(descriptors);
     }
 
     #[allow(clippy::type_complexity)]
@@ -76,31 +90,23 @@ impl<B: Backend, D: Device<B>, V: Vertex> PipelineBundle<B, D, V> {
         render_pass: &B::RenderPass,
         render_area: Extent2D,
         set: &ShaderSet,
-    ) -> Result<
-        (
-            Vec<B::DescriptorSetLayout>,
-            B::PipelineLayout,
-            B::GraphicsPipeline,
-        ),
-        Error,
-    > {
+        layout: &B::PipelineLayout
+    ) -> Result<B::GraphicsPipeline, Error> {
         let shader_modules = Self::create_shader_modules(&device, set)?;
         let result = {
             let shaders = Self::create_graphics_shader_set(&shader_modules)?;
             let rasterizer = Self::create_rasterizer();
-            let descriptor_layouts = Self::create_descriptor_layouts(&device)?;
-            let layout = Self::create_pipeline_layout(&device, &descriptor_layouts)?;
 
             let pipeline = Self::create_pipeline(
                 &device,
                 &render_pass,
-                &layout,
+                layout,
                 shaders,
                 rasterizer,
                 render_area,
             )?;
 
-            (descriptor_layouts, layout, pipeline)
+            pipeline
         };
 
         Self::destroy_shader_modules(&device, shader_modules);
@@ -214,16 +220,6 @@ impl<B: Backend, D: Device<B>, V: Vertex> PipelineBundle<B, D, V> {
         Ok(unsafe { device.create_pipeline_layout(descriptor_set_layouts, push_constants)? })
     }
 
-    fn create_descriptor_layouts(
-        device: &D,
-    ) -> Result<Vec<B::DescriptorSetLayout>, Error> {
-        let bindings = Vec::<DescriptorSetLayoutBinding>::new();
-        let immutable_samplers = Vec::<B::Sampler>::new();
-        Ok(vec![unsafe {
-            device.create_descriptor_set_layout(bindings, immutable_samplers)?
-        }])
-    }
-
     fn create_shader_modules(
         device: &D,
         set: &ShaderSet,
@@ -290,23 +286,16 @@ impl<B: Backend, D: Device<B>, V: Vertex> PipelineBundle<B, D, V> {
     }
 }
 
-impl<B: Backend, D: Device<B>, V: Vertex> Drop for PipelineBundle<B, D, V> {
+impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Drop for PipelineBundle<V, B, D, I> {
     fn drop(&mut self) {
         use core::ptr::read;
 
         info!("{}", "Dropping Pipeline".red());
 
-        let device = &self.device;
-        let layout = &self.layout;
+        let device = &self.state.device();
         let pipeline = &self.pipeline;
-        let layouts = &mut self.descriptor_layouts;
-
-        for desc in layouts.drain(..) {
-            unsafe { self.device.destroy_descriptor_set_layout(desc) };
-        }
 
         unsafe {
-            device.destroy_pipeline_layout(ManuallyDrop::into_inner(read(layout)));
             device.destroy_graphics_pipeline(ManuallyDrop::into_inner(read(pipeline)));
         }
     }

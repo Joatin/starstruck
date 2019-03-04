@@ -50,7 +50,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> SetupContext<B, D, I> {
     pub fn create_pipeline<V: 'static + Vertex>(
         &self,
         shader_set: ShaderSet,
-    ) -> impl Future<Item = Arc<Pipeline<V, B, D>>, Error = Error> + Send {
+    ) -> impl Future<Item = Arc<Pipeline<V, B, D, I>>, Error = Error> + Send {
         let pipelines_mutex = Arc::clone(&self.pipelines);
 
         Pipeline::new(Arc::clone(&self.state), shader_set).map(move |pipeline| {
@@ -75,16 +75,21 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> SetupContext<B, D, I> {
         info!("Recreating pipelines");
         let pipelines = self.pipelines.lock().unwrap();
         for pipe in pipelines.iter() {
-            pipe.recreate_pipeline(&self.state)?
+            pipe.recreate_pipeline(Arc::clone(&self.state))?
         }
         info!("All pipelines recreated");
         Ok(())
     }
 }
 
-pub trait CreateDefaultPipeline<V: Vertex, B: Backend, D: Device<B>> {
+pub trait CreateDefaultPipeline<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
     fn create_default_pipeline(&self)
-        -> Box<Future<Item = Arc<Pipeline<V, B, D>>, Error = Error> + Send>;
+        -> Box<Future<Item = Arc<Pipeline<V, B, D, I>>, Error = Error> + Send>;
+}
+
+pub trait CreateTexturedPipeline<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+    fn create_textured_pipeline(&self)
+        -> Box<Future<Item = Arc<Pipeline<V, B, D, I>>, Error = Error> + Send>;
 }
 
 pub trait CreateBundleFromObj<In: Index, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {

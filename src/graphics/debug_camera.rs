@@ -23,7 +23,7 @@ impl DebugCamera {
 
     pub fn new() -> Self {
         Self {
-            perspective_projection: Mat4::perspective_lh_zo(f32::to_radians(50.0), 1.0, 0.1, 100.0),
+            perspective_projection: Mat4::perspective_lh_zo(f32::to_radians(70.0), 1.0, 0.1, 100.0),
             orthogonal_projection: Mat4::identity(),
             position: Vec3::zero(),
             pitch_deg: 0.0,
@@ -58,7 +58,7 @@ impl DebugCamera {
         let area = context.render_area();
         let ratio = area.width as f32 / area.height as f32;
         self.perspective_projection =
-            Mat4::perspective_lh_zo(f32::to_radians(50.0), ratio, 0.1, 100.0);
+            Mat4::perspective_lh_zo(f32::to_radians(70.0), ratio, 0.1, 100.0);
 
         let o_height = (area.height as f32 / 2.0) * Self::ZOOM;
         let o_width = (area.width as f32 / 2.0) * Self::ZOOM;

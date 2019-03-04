@@ -9,7 +9,6 @@ use starstruck::graphics::DebugCamera;
 use starstruck::graphics::Pipeline;
 use starstruck::primitive::Vertex3DUV;
 use starstruck::CreateBundleFromObj;
-use starstruck::CreateDefaultPipeline;
 use starstruck::SetupContext;
 use starstruck::Starstruck;
 use std::sync::Arc;
