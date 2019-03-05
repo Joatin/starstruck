@@ -84,10 +84,29 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> CreateDefaultPipeline<V
 mod tests {
     use crate::primitive::Vertex;
     use crate::primitive::VertexXY;
+    use gfx_hal::format::Format;
+    use gfx_hal::pso::AttributeDesc;
+    use gfx_hal::pso::Element;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn it_should_return_correct_stride() {
         assert_eq!(8, VertexXY::stride())
+    }
+
+    #[test]
+    fn it_should_return_correct_attributes() {
+        assert_eq!(
+            vec![AttributeDesc {
+                location: 0,
+                binding: 0,
+                element: Element {
+                    format: Format::Rg32Float,
+                    offset: 0,
+                },
+            }],
+            VertexXY::attributes()
+        )
     }
 
 }

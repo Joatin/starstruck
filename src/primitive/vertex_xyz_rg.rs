@@ -4,7 +4,6 @@ use crate::graphics::ShaderDescription;
 use crate::graphics::ShaderSet;
 use crate::primitive::Vertex;
 use crate::setup_context::CreateBundleFromObj;
-use crate::setup_context::CreateDefaultPipeline;
 use crate::setup_context::CreateTexturedPipeline;
 use crate::setup_context::SetupContext;
 use failure::Error;

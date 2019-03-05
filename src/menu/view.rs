@@ -1,5 +1,4 @@
 use crate::context::Context;
-use crate::menu::Component;
 use failure::Error;
 
 pub trait View {

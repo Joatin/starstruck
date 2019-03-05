@@ -1,7 +1,4 @@
 mod bundle;
-mod camera;
-mod debug_camera;
-mod default_camera;
 mod pipeline;
 mod shader_description;
 mod shader_set;
@@ -12,15 +9,6 @@ pub use self::bundle::Bundle;
 
 #[doc(inline)]
 pub use self::bundle::BundleEncoderExt;
-
-#[doc(inline)]
-pub use self::camera::Camera;
-
-#[doc(inline)]
-pub use self::debug_camera::DebugCamera;
-
-#[doc(inline)]
-pub use self::default_camera::DefaultCamera;
 
 #[doc(inline)]
 pub use self::pipeline::Pipeline;

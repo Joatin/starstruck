@@ -2,23 +2,24 @@ extern crate starstruck;
 
 mod bundle;
 
-use failure::Error;
 use crate::bundle::it_should_create_a_lot_of_bundles;
-use std::panic;
 use colored::*;
-use std::time::Instant;
-use simplelog::TermLogger;
+use failure::Error;
 use log::LevelFilter;
 use simplelog::Config;
+use simplelog::TermLogger;
+use std::panic;
+use std::time::Instant;
 
 /// These tests require that they are started in the main thread
 fn main() -> Result<(), Error> {
     TermLogger::init(LevelFilter::Info, Config::default()).unwrap();
     println!();
 
-    let tests = vec![
-        ("It should create a lot of bundles", it_should_create_a_lot_of_bundles)
-    ];
+    let tests = vec![(
+        "It should create a lot of bundles",
+        it_should_create_a_lot_of_bundles,
+    )];
 
     println!("running {} tests", tests.len());
 
@@ -32,8 +33,13 @@ fn main() -> Result<(), Error> {
         }) {
             Ok(_) => {
                 success += 1;
-                println!("test {} ... {} {:?}", test_name, "ok".green(), now.elapsed());
-            },
+                println!(
+                    "test {} ... {} {:?}",
+                    test_name,
+                    "ok".green(),
+                    now.elapsed()
+                );
+            }
             Err(_) => {
                 fail += 1;
                 println!("test {} ... {}", test_name, "fail".red());
@@ -48,7 +54,10 @@ fn main() -> Result<(), Error> {
     };
 
     println!();
-    println!("test result: {}. {} passed; {} failed;", result, success, fail);
+    println!(
+        "test result: {}. {} passed; {} failed;",
+        result, success, fail
+    );
     println!();
 
     Ok(())

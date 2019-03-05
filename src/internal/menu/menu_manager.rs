@@ -67,7 +67,7 @@ impl MenuManager {
 
     fn draw_view(&self, context: &mut Context, view: &Arc<View>) -> Result<bool, Error> {
         context.draw(&self.pipeline, &self.bundle);
-        view.draw(context);
+        view.draw(context)?;
         Ok(!view.covers_screen())
     }
 }

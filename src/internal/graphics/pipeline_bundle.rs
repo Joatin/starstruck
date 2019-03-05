@@ -20,7 +20,6 @@ use gfx_hal::pso::DepthTest;
 use gfx_hal::pso::Descriptor;
 use gfx_hal::pso::DescriptorArrayIndex;
 use gfx_hal::pso::DescriptorBinding;
-use gfx_hal::pso::DescriptorSetLayoutBinding;
 use gfx_hal::pso::EntryPoint;
 use gfx_hal::pso::Factor;
 use gfx_hal::pso::GraphicsPipelineDesc;
@@ -31,7 +30,6 @@ use gfx_hal::pso::Multisampling;
 use gfx_hal::pso::PipelineCreationFlags;
 use gfx_hal::pso::Rasterizer;
 use gfx_hal::pso::Rect;
-use gfx_hal::pso::ShaderStageFlags;
 use gfx_hal::pso::Specialization;
 use gfx_hal::pso::StencilTest;
 use gfx_hal::pso::VertexBufferDesc;
@@ -218,17 +216,6 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineBund
 
     fn create_rasterizer() -> Rasterizer {
         Rasterizer::FILL
-    }
-
-    fn create_pipeline_layout(
-        device: &D,
-        descriptor_set_layouts: &[B::DescriptorSetLayout],
-    ) -> Result<B::PipelineLayout, Error> {
-        let push_constants = vec![
-            (ShaderStageFlags::VERTEX, 0..16),
-            (ShaderStageFlags::FRAGMENT, 0..1),
-        ];
-        Ok(unsafe { device.create_pipeline_layout(descriptor_set_layouts, push_constants)? })
     }
 
     fn create_shader_modules(

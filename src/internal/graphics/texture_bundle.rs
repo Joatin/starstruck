@@ -139,7 +139,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> TextureBundle<B, D, I> 
         .and_then(move |result| result.import_data(image))
     }
 
-    fn import_data(self, mut image: RgbaImage) -> impl Future<Item = Self, Error = Error> {
+    fn import_data(self, image: RgbaImage) -> impl Future<Item = Self, Error = Error> {
         let required_bytes = (self.row_pitch * self.height as usize) as _;
         let limits = *self.state.limits();
 

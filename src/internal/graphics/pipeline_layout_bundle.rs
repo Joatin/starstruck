@@ -2,7 +2,6 @@ use crate::graphics::ShaderSet;
 use crate::internal::graphics::GraphicsState;
 use colored::*;
 use failure::Error;
-use gfx_hal::image::Layout;
 use gfx_hal::pso::Descriptor;
 use gfx_hal::pso::DescriptorArrayIndex;
 use gfx_hal::pso::DescriptorBinding;
@@ -194,8 +193,11 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop for PipelineLayout
         let device = &self.state.device();
         let layout = &self.layout;
         let descriptor_layouts = &mut self.descriptor_layouts;
+        let descriptor_pool = &mut self.descriptor_pool;
 
         unsafe {
+            descriptor_pool.reset();
+            device.destroy_descriptor_pool(ManuallyDrop::into_inner(read(descriptor_pool)));
             device.destroy_pipeline_layout(ManuallyDrop::into_inner(read(layout)));
             for item in descriptor_layouts.drain(1..) {
                 device.destroy_descriptor_set_layout(item);

@@ -1,6 +1,6 @@
+use crate::camera::Camera;
 use crate::graphics::Bundle;
 use crate::graphics::BundleEncoderExt;
-use crate::graphics::Camera;
 use crate::graphics::Pipeline;
 use crate::graphics::PipelineEncoderExt;
 use crate::input::UserInput;
@@ -28,7 +28,7 @@ pub struct Context<
     encoder: RenderPassInlineEncoder<'a, B>,
     base_projection: Mat4<f32>,
     render_area: Extent2D,
-    stop: bool
+    stop: bool,
 }
 
 impl<'a, B: Backend, D: Device<B>, I: Instance<Backend = B>> Context<'a, B, D, I> {
@@ -52,7 +52,7 @@ impl<'a, B: Backend, D: Device<B>, I: Instance<Backend = B>> Context<'a, B, D, I
                 near: 0.,
                 far: 100.,
             }),
-            stop: false
+            stop: false,
         }
     }
 

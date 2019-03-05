@@ -2,7 +2,6 @@ use crate::graphics::ShaderSet;
 use crate::graphics::Texture;
 use crate::internal::graphics::GraphicsState;
 use crate::internal::graphics::PipelineBundle;
-use crate::internal::graphics::PipelineLayoutBundle;
 use crate::primitive::Vertex;
 use failure::Error;
 use futures::lazy;

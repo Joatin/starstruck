@@ -338,9 +338,9 @@ impl<
     > Debug for BufferBundle<B, D, I, P, T>
 {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(f, "buffer lenght: {}", self.buffer_len);
-        write!(f, "usage: {:#?}", self.usage);
-        write!(f, "requirements: {:#?}", self.requirements);
+        write!(f, "buffer lenght: {}", self.buffer_len)?;
+        write!(f, "usage: {:#?}", self.usage)?;
+        write!(f, "requirements: {:#?}", self.requirements)?;
         Ok(())
     }
 }

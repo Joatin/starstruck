@@ -1,7 +1,7 @@
-use starstruck::Starstruck;
-use starstruck::primitive::Vertex2D;
 use futures::future::join_all;
 use futures::future::Future;
+use starstruck::primitive::Vertex2D;
+use starstruck::Starstruck;
 
 // OUR VERTICES
 const VERTICES: [Vertex2D; 3] = [
@@ -27,8 +27,9 @@ pub fn it_should_create_a_lot_of_bundles() {
             println!("{}", state.len());
             context.stop_starstruck();
             Ok(())
-        }
-    ).unwrap();
+        },
+    )
+    .unwrap();
 
     starstruck.run().unwrap();
 }

@@ -1,5 +1,5 @@
+use crate::camera::Camera;
 use crate::context::Context;
-use crate::graphics::Camera;
 use gfx_hal::Backend;
 use gfx_hal::Device;
 use gfx_hal::Instance;
@@ -8,6 +8,24 @@ use vek::mat::Mat4;
 use vek::vec::Vec3;
 use winit::VirtualKeyCode;
 
+/// This camera implements the Camera trait. This camera needs to be updated each frame from the
+/// Context. This camera can be freely navigated in the world space. You can also toggle the
+/// projection. The key bindings are as follows:
+///
+/// * UP: Space
+/// * DOWN: LShift
+/// * FORWARD: W
+/// * BACKWARD: S
+/// * LEFT: A
+/// * RIGHT: D
+/// * ROTATE_UP: ArrowUp
+/// * ROTATE_DOWN: ArrowDown
+/// * ROTATE_LEFT: ArrowLeft
+/// * ROTATE_RIGHT: ArrowRight
+/// * TOGGlE_PERSPECTIVE: F1
+///
+/// Observe that this camera is only intended for early scaffolding or debugging purposes. You do
+/// not want this in your final app
 #[derive(Debug, Clone, Copy)]
 pub struct DebugCamera {
     perspective_projection: Mat4<f32>,
@@ -21,15 +39,26 @@ pub struct DebugCamera {
 impl DebugCamera {
     const ZOOM: f32 = 0.005;
 
+    /// Constructs a new debug camera
     pub fn new() -> Self {
         Self {
-            perspective_projection: Mat4::perspective_lh_zo(f32::to_radians(70.0), 1.0, 0.1, 100.0),
+            perspective_projection: Mat4::perspective_lh_zo(
+                f32::to_radians(70.0),
+                1.0,
+                0.01,
+                100.0,
+            ),
             orthogonal_projection: Mat4::identity(),
             position: Vec3::zero(),
             pitch_deg: 0.0,
             yaw_deg: 0.0,
             use_perspective: true,
         }
+    }
+
+    /// Tells if the camera is using perspective projection, otherwise orthogonal
+    pub fn is_perspective(&self) -> bool {
+        self.use_perspective
     }
 
     fn make_front(&self) -> Vec3<f32> {
@@ -47,10 +76,38 @@ impl DebugCamera {
         self.yaw_deg = (self.yaw_deg + d_yaw_deg) % 360.0;
     }
 
+    /// Sets the cameras position in the world
     pub fn set_position(&mut self, pos: Vec3<f32>) {
         self.position = pos;
     }
 
+    /// Updates the camera from the context. This makes sure the the projects aspects ratios are
+    /// correct with the windows size. It also takes care of moving the camera based on the user
+    /// input.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use starstruck::Starstruck;
+    /// use starstruck::graphics::DebugCamera;
+    ///
+    /// let starstruck = Starstruck::init(
+    ///     "Example",
+    ///     |_| {
+    ///         Ok(DebugCamera::new())
+    ///     },
+    ///     |(camera, context)| {
+    ///         camera.update_from_context(context);
+    ///         Ok(())
+    ///     }
+    /// )?;
+    /// # Ok(())
+    /// # }
+    ///
+    /// ```
     pub fn update_from_context<B: Backend, D: Device<B>, I: Instance<Backend = B>>(
         &mut self,
         context: &Context<B, D, I>,
@@ -134,5 +191,18 @@ impl Camera for DebugCamera {
         } else {
             self.orthogonal_projection * view
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::camera::DebugCamera;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn it_should_use_perspective_by_default() {
+        let camera = DebugCamera::new();
+
+        assert_eq!(true, camera.is_perspective())
     }
 }

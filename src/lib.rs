@@ -21,6 +21,7 @@ mod internal;
 mod setup_context;
 mod starstruck;
 
+pub mod camera;
 pub mod errors;
 pub mod graphics;
 pub mod input;
@@ -30,11 +31,3 @@ pub mod primitive;
 pub use self::context::*;
 pub use self::setup_context::*;
 pub use self::starstruck::Starstruck;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
