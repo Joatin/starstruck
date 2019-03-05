@@ -3,11 +3,11 @@ use futures::future::Future;
 use simplelog::Config;
 use simplelog::LevelFilter;
 use simplelog::TermLogger;
-use starstruck::Context;
 use starstruck::graphics::Bundle;
 use starstruck::graphics::DebugCamera;
 use starstruck::graphics::Pipeline;
 use starstruck::primitive::Vertex3D;
+use starstruck::Context;
 use starstruck::CreateBundleFromObj;
 use starstruck::CreateDefaultPipeline;
 use starstruck::SetupContext;
@@ -34,7 +34,7 @@ impl State {
                 camera.set_position(Vec3 {
                     x: 0.0,
                     y: 0.0,
-                    z: -3.0
+                    z: -3.0,
                 });
 
                 State {

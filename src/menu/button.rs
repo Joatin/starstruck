@@ -1,12 +1,8 @@
 use crate::menu::Component;
 
-pub struct Button {
+pub struct Button {}
 
-}
-
-impl Button {
-
-}
+impl Button {}
 
 impl Component for Button {
     fn get_corners() {

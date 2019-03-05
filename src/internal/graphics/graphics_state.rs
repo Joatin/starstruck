@@ -4,6 +4,7 @@ use core::mem::ManuallyDrop;
 use failure::Error;
 use gfx_hal::command::RenderPassInlineEncoder;
 use gfx_hal::window::Extent2D;
+use gfx_hal::Limits;
 use gfx_hal::{
     adapter::{Adapter, PhysicalDevice},
     device::Device,
@@ -11,14 +12,15 @@ use gfx_hal::{
     queue::family::QueueGroup,
     Backend, Gpu, Graphics, Instance, QueueFamily, Surface,
 };
+use std::fmt;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::fmt::Formatter;
 use std::sync::Arc;
 use std::sync::RwLock;
 use winit::Window;
-use gfx_hal::Limits;
 
-pub struct GraphicsState<B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+pub struct GraphicsState<B: Backend, D: Device<B>, I: Instance<Backend = B>> {
     command_pool: RwLock<ManuallyDrop<CommandPool<B, Graphics>>>,
     queue_group: RwLock<QueueGroup<B, Graphics>>,
     device: Arc<D>,
@@ -26,7 +28,7 @@ pub struct GraphicsState<B: Backend, D: Device<B>, I: Instance<Backend=B>> {
     _surface: RwLock<B::Surface>,
     _instance: ManuallyDrop<I>,
     swapchain: RwLock<SwapchainBundle<B, D>>,
-    limits: Limits
+    limits: Limits,
 }
 
 impl GraphicsState<backend::Backend, backend::Device, backend::Instance> {
@@ -36,7 +38,7 @@ impl GraphicsState<backend::Backend, backend::Device, backend::Instance> {
         let adapters = instance.enumerate_adapters();
 
         info!(
-            "Found the following physical devices: {:?}",
+            "Found the following physical devices: {:#?}",
             adapters.iter().map(|a| &a.info).collect::<Vec<_>>()
         );
 
@@ -52,8 +54,8 @@ impl GraphicsState<backend::Backend, backend::Device, backend::Instance> {
 
         let limits = adapter.physical_device.limits();
 
-        info!("Selected gpu: {:?}", adapter.info.name);
-        info!("Selected gpu: {:?}", &limits);
+        info!("Selected gpu: {:#?}", adapter.info.name);
+        info!("Selected gpu: {:#?}", &limits);
 
         // Open A Device and take out a QueueGroup
         let (device, queue_group) = {
@@ -106,12 +108,12 @@ impl GraphicsState<backend::Backend, backend::Device, backend::Instance> {
             queue_group: RwLock::new(queue_group),
             swapchain: RwLock::new(swapchain),
             command_pool: RwLock::new(ManuallyDrop::new(command_pool)),
-            limits
+            limits,
         })
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> GraphicsState<B, D, I> {
+impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> GraphicsState<B, D, I> {
     pub fn limits(&self) -> &Limits {
         &self.limits
     }
@@ -130,9 +132,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> GraphicsState<B, D, I> {
         Ok(())
     }
 
-    pub fn next_encoder<
-        F: FnOnce(RenderPassInlineEncoder<B>) -> Result<(), Error>,
-    >(
+    pub fn next_encoder<F: FnOnce(RenderPassInlineEncoder<B>) -> Result<(), Error>>(
         &self,
         callback: F,
     ) -> Result<(), CreateEncoderError> {
@@ -155,10 +155,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> GraphicsState<B, D, I> {
         Arc::clone(&self.device)
     }
 
-    pub fn render_pass<
-        T: FnOnce(&B::RenderPass) -> Result<R, Error>,
-        R,
-    >(
+    pub fn render_pass<T: FnOnce(&B::RenderPass) -> Result<R, Error>, R>(
         &self,
         callback: T,
     ) -> Result<R, Error> {
@@ -172,9 +169,16 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> GraphicsState<B, D, I> {
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> Debug for GraphicsState<B, D, I> {
-    fn fmt(&self, formatter: &mut Formatter) -> core::result::Result<(), std::fmt::Error> {
+impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for GraphicsState<B, D, I> {
+    fn fmt(&self, formatter: &mut Formatter) -> Result<(), fmt::Error> {
         formatter.write_str("Graphics State")?;
+        Ok(())
+    }
+}
+
+impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Display for GraphicsState<B, D, I> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "Graphics State")?;
         Ok(())
     }
 }

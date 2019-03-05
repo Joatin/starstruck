@@ -1,37 +1,39 @@
-use gfx_hal::Backend;
-use gfx_hal::Device;
-use std::mem::ManuallyDrop;
-use crate::internal::graphics::GraphicsState;
-use std::sync::Arc;
-use gfx_hal::Instance;
-use failure::Error;
-use gfx_hal::pso::ShaderStageFlags;
-use gfx_hal::pso::DescriptorSetLayoutBinding;
-use std::ops::Range;
 use crate::graphics::ShaderSet;
+use crate::internal::graphics::GraphicsState;
 use colored::*;
-use std::collections::HashMap;
-use gfx_hal::pso::DescriptorType;
+use failure::Error;
+use gfx_hal::image::Layout;
+use gfx_hal::pso::Descriptor;
 use gfx_hal::pso::DescriptorArrayIndex;
 use gfx_hal::pso::DescriptorBinding;
-use gfx_hal::pso::Descriptor;
-use gfx_hal::image::Layout;
 use gfx_hal::pso::DescriptorPool;
 use gfx_hal::pso::DescriptorRangeDesc;
+use gfx_hal::pso::DescriptorSetLayoutBinding;
 use gfx_hal::pso::DescriptorSetWrite;
+use gfx_hal::pso::DescriptorType;
+use gfx_hal::pso::ShaderStageFlags;
+use gfx_hal::Backend;
+use gfx_hal::Device;
+use gfx_hal::Instance;
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem::ManuallyDrop;
+use std::ops::Range;
+use std::sync::Arc;
 
-pub struct PipelineLayoutBundle<B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+pub struct PipelineLayoutBundle<B: Backend, D: Device<B>, I: Instance<Backend = B>> {
     descriptor_layouts: Vec<B::DescriptorSetLayout>,
     layout: ManuallyDrop<B::PipelineLayout>,
     push_constants: Vec<(ShaderStageFlags, Range<u32>)>,
     descriptor_pool: ManuallyDrop<B::DescriptorPool>,
     descriptor_set: B::DescriptorSet,
-    state: Arc<GraphicsState<B, D, I>>
+    state: Arc<GraphicsState<B, D, I>>,
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineLayoutBundle<B, D, I> {
+impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineLayoutBundle<B, D, I> {
     pub fn new(state: Arc<GraphicsState<B, D, I>>, set: &ShaderSet) -> Result<Self, Error> {
-
         let mut bindings = Vec::<DescriptorSetLayoutBinding>::new();
         let mut range = HashMap::<DescriptorType, DescriptorRangeDesc>::new();
         for (binding, ty, count) in &set.vertex.bindings {
@@ -40,15 +42,12 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineLayoutBundle<B, D
                 ty: *ty,
                 count: *count,
                 stage_flags: ShaderStageFlags::VERTEX,
-                immutable_samplers: false
+                immutable_samplers: false,
             });
             if let Some(ran) = range.get_mut(ty) {
                 ran.count += 1;
             } else {
-                range.insert(*ty, DescriptorRangeDesc {
-                    ty: *ty,
-                    count: 1
-                });
+                range.insert(*ty, DescriptorRangeDesc { ty: *ty, count: 1 });
             }
         }
         if let Some(hull) = set.hull.as_ref() {
@@ -58,15 +57,12 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineLayoutBundle<B, D
                     ty: *ty,
                     count: *count,
                     stage_flags: ShaderStageFlags::HULL,
-                    immutable_samplers: false
+                    immutable_samplers: false,
                 });
                 if let Some(ran) = range.get_mut(ty) {
                     ran.count += 1;
                 } else {
-                    range.insert(*ty, DescriptorRangeDesc {
-                        ty: *ty,
-                        count: 1
-                    });
+                    range.insert(*ty, DescriptorRangeDesc { ty: *ty, count: 1 });
                 }
             }
         }
@@ -77,15 +73,12 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineLayoutBundle<B, D
                     ty: *ty,
                     count: *count,
                     stage_flags: ShaderStageFlags::DOMAIN,
-                    immutable_samplers: false
+                    immutable_samplers: false,
                 });
                 if let Some(ran) = range.get_mut(ty) {
                     ran.count += 1;
                 } else {
-                    range.insert(*ty, DescriptorRangeDesc {
-                        ty: *ty,
-                        count: 1
-                    });
+                    range.insert(*ty, DescriptorRangeDesc { ty: *ty, count: 1 });
                 }
             }
         }
@@ -96,15 +89,12 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineLayoutBundle<B, D
                     ty: *ty,
                     count: *count,
                     stage_flags: ShaderStageFlags::FRAGMENT,
-                    immutable_samplers: false
+                    immutable_samplers: false,
                 });
                 if let Some(ran) = range.get_mut(ty) {
                     ran.count += 1;
                 } else {
-                    range.insert(*ty, DescriptorRangeDesc {
-                        ty: *ty,
-                        count: 1
-                    });
+                    range.insert(*ty, DescriptorRangeDesc { ty: *ty, count: 1 });
                 }
             }
         }
@@ -115,22 +105,21 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineLayoutBundle<B, D
                     ty: *ty,
                     count: *count,
                     stage_flags: ShaderStageFlags::GEOMETRY,
-                    immutable_samplers: false
+                    immutable_samplers: false,
                 });
                 if let Some(ran) = range.get_mut(ty) {
                     ran.count += 1;
                 } else {
-                    range.insert(*ty, DescriptorRangeDesc {
-                        ty: *ty,
-                        count: 1
-                    });
+                    range.insert(*ty, DescriptorRangeDesc { ty: *ty, count: 1 });
                 }
             }
         }
 
         let immutable_samplers = Vec::<B::Sampler>::new();
         let descriptor_layouts = vec![unsafe {
-            state.device().create_descriptor_set_layout(bindings, immutable_samplers)?
+            state
+                .device()
+                .create_descriptor_set_layout(bindings, immutable_samplers)?
         }];
 
         let mut push_constants = Vec::with_capacity(2);
@@ -148,14 +137,16 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineLayoutBundle<B, D
             push_constants.push((ShaderStageFlags::GEOMETRY, 0..geometry.push_constant_floats));
         }
 
-
-        let layout = unsafe { state.device().create_pipeline_layout(&descriptor_layouts, &push_constants)? };
-
-        let mut descriptor_pool = unsafe { state.device().create_descriptor_pool(1, range.values()) }?;
-
-        let descriptor_set = unsafe {
-            descriptor_pool.allocate_set(&descriptor_layouts[0])?
+        let layout = unsafe {
+            state
+                .device()
+                .create_pipeline_layout(&descriptor_layouts, &push_constants)?
         };
+
+        let mut descriptor_pool =
+            unsafe { state.device().create_descriptor_pool(1, range.values()) }?;
+
+        let descriptor_set = unsafe { descriptor_pool.allocate_set(&descriptor_layouts[0])? };
 
         Ok(Self {
             descriptor_layouts,
@@ -163,20 +154,24 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineLayoutBundle<B, D
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
             layout: ManuallyDrop::new(layout),
             push_constants,
-            state
+            state,
         })
     }
 
-    pub fn bind_assets(&self, descriptors: Vec<(DescriptorBinding, DescriptorArrayIndex, Descriptor<B>)>) {
+    pub fn bind_assets(
+        &self,
+        descriptors: Vec<(DescriptorBinding, DescriptorArrayIndex, Descriptor<B>)>,
+    ) {
         unsafe {
-            let result: Vec<DescriptorSetWrite<B, _>> = descriptors.into_iter().map(|(binding, array_offset, desc)| {
-                DescriptorSetWrite {
+            let result: Vec<DescriptorSetWrite<B, _>> = descriptors
+                .into_iter()
+                .map(|(binding, array_offset, desc)| DescriptorSetWrite {
                     set: &self.descriptor_set,
                     binding,
                     array_offset,
                     descriptors: Some(desc),
-                }
-            }).collect();
+                })
+                .collect();
             self.state.device().write_descriptor_sets(result);
         }
     }
@@ -190,8 +185,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineLayoutBundle<B, D
     }
 }
 
-
-impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> Drop for PipelineLayoutBundle<B, D, I> {
+impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop for PipelineLayoutBundle<B, D, I> {
     fn drop(&mut self) {
         use core::ptr::read;
 
@@ -207,5 +201,14 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> Drop for PipelineLayoutBu
                 device.destroy_descriptor_set_layout(item);
             }
         }
+    }
+}
+
+impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for PipelineLayoutBundle<B, D, I> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:?}", self.push_constants)?;
+        write!(f, "{:?}", self.descriptor_set)?;
+        write!(f, "{}", self.state)?;
+        Ok(())
     }
 }

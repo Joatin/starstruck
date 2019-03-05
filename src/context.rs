@@ -11,21 +11,27 @@ use crate::setup_context::SetupContext;
 use gfx_hal::command::RenderPassInlineEncoder;
 use gfx_hal::pso::ShaderStageFlags;
 use gfx_hal::window::Extent2D;
-use vek::geom::FrustumPlanes;
-use vek::Mat4;
 use gfx_hal::Backend;
 use gfx_hal::Device;
 use gfx_hal::Instance;
+use vek::geom::FrustumPlanes;
+use vek::Mat4;
 
-pub struct Context<'a, B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend=B> = backend::Instance> {
+pub struct Context<
+    'a,
+    B: Backend = backend::Backend,
+    D: Device<B> = backend::Device,
+    I: Instance<Backend = B> = backend::Instance,
+> {
     setup_context: &'a SetupContext<B, D, I>,
     input: UserInput,
     encoder: RenderPassInlineEncoder<'a, B>,
     base_projection: Mat4<f32>,
     render_area: Extent2D,
+    stop: bool
 }
 
-impl<'a, B: Backend, D: Device<B>, I: Instance<Backend=B>> Context<'a, B, D, I> {
+impl<'a, B: Backend, D: Device<B>, I: Instance<Backend = B>> Context<'a, B, D, I> {
     pub(crate) fn new(
         input: UserInput,
         setup_context: &'a SetupContext<B, D, I>,
@@ -46,7 +52,16 @@ impl<'a, B: Backend, D: Device<B>, I: Instance<Backend=B>> Context<'a, B, D, I> 
                 near: 0.,
                 far: 100.,
             }),
+            stop: false
         }
+    }
+
+    pub fn stop_starstruck(&mut self) {
+        self.stop = true;
+    }
+
+    pub(crate) fn should_stop_starstruck(&self) -> bool {
+        self.stop
     }
 
     pub fn render_area(&self) -> Extent2D {
@@ -61,8 +76,11 @@ impl<'a, B: Backend, D: Device<B>, I: Instance<Backend=B>> Context<'a, B, D, I> 
         self.setup_context
     }
 
-    pub fn draw<In: Index, V: Vertex>(&mut self, pipeline: &Pipeline<V, B, D, I>, bundle: &Bundle<In, V, B, D, I>)
-    where
+    pub fn draw<In: Index, V: Vertex>(
+        &mut self,
+        pipeline: &Pipeline<V, B, D, I>,
+        bundle: &Bundle<In, V, B, D, I>,
+    ) where
         RenderPassInlineEncoder<'a, B>: BundleEncoderExt<In, V, B, D, I>,
     {
         self.encoder.bind_pipeline(pipeline);
@@ -80,7 +98,7 @@ impl<'a, B: Backend, D: Device<B>, I: Instance<Backend=B>> Context<'a, B, D, I> 
         &mut self,
         pipeline: &Pipeline<V, B, D, I>,
         bundle: &Bundle<In, V, B, D, I>,
-        camera: &Camera
+        camera: &Camera,
     ) where
         RenderPassInlineEncoder<'a, B>: BundleEncoderExt<In, V, B, D, I>,
     {

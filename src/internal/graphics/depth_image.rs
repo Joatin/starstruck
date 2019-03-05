@@ -18,15 +18,11 @@ pub struct DepthImage<B: Backend, D: Device<B>> {
     pub requirements: Requirements,
     pub memory: ManuallyDrop<B::Memory>,
     pub image_view: ManuallyDrop<B::ImageView>,
-    pub device: Arc<D>
+    pub device: Arc<D>,
 }
 
 impl<B: Backend, D: Device<B>> DepthImage<B, D> {
-    pub fn new(
-        device: Arc<D>,
-        adapter: &Adapter<B>,
-        extent: Extent2D,
-    ) -> Result<Self, Error> {
+    pub fn new(device: Arc<D>, adapter: &Adapter<B>, extent: Extent2D) -> Result<Self, Error> {
         unsafe {
             let mut the_image = device.create_image(
                 gfx_hal::image::Kind::D2(extent.width, extent.height, 1, 1),
@@ -68,7 +64,7 @@ impl<B: Backend, D: Device<B>> DepthImage<B, D> {
                 requirements,
                 memory: ManuallyDrop::new(memory),
                 image_view: ManuallyDrop::new(image_view),
-                device
+                device,
             })
         }
     }

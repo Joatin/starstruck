@@ -1,17 +1,13 @@
-use failure::Error;
-use crate::menu::View;
 use crate::context::Context;
 use crate::graphics::Bundle;
+use crate::menu::View;
+use failure::Error;
 
-pub struct InitView {
-
-}
+pub struct InitView {}
 
 impl InitView {
     pub fn new() -> Result<Self, Error> {
-        Ok(Self {
-
-        })
+        Ok(Self {})
     }
 }
 

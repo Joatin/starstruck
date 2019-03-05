@@ -1,5 +1,7 @@
 use crate::graphics::ShaderDescription;
 use crate::graphics::ShaderSet;
+use crate::internal::graphics::GraphicsState;
+use crate::internal::graphics::PipelineLayoutBundle;
 use crate::primitive::Vertex;
 use colored::*;
 use failure::Error;
@@ -15,6 +17,9 @@ use gfx_hal::pso::ColorMask;
 use gfx_hal::pso::Comparison;
 use gfx_hal::pso::DepthStencilDesc;
 use gfx_hal::pso::DepthTest;
+use gfx_hal::pso::Descriptor;
+use gfx_hal::pso::DescriptorArrayIndex;
+use gfx_hal::pso::DescriptorBinding;
 use gfx_hal::pso::DescriptorSetLayoutBinding;
 use gfx_hal::pso::EntryPoint;
 use gfx_hal::pso::Factor;
@@ -33,42 +38,45 @@ use gfx_hal::pso::VertexBufferDesc;
 use gfx_hal::pso::Viewport;
 use gfx_hal::window::Extent2D;
 use gfx_hal::Backend;
+use gfx_hal::Instance;
 use gfx_hal::Primitive;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
-use std::marker::PhantomData;
-use crate::internal::graphics::GraphicsState;
-use gfx_hal::Instance;
-use crate::internal::graphics::PipelineLayoutBundle;
-use gfx_hal::pso::DescriptorArrayIndex;
-use gfx_hal::pso::DescriptorBinding;
-use gfx_hal::pso::Descriptor;
 
-pub struct PipelineBundle<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+pub struct PipelineBundle<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
     pipeline_layout: PipelineLayoutBundle<B, D, I>,
     pipeline: ManuallyDrop<B::GraphicsPipeline>,
     state: Arc<GraphicsState<B, D, I>>,
-    phantom: PhantomData<V>
+    phantom: PhantomData<V>,
 }
 
-impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineBundle<V, B, D, I> {
+impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineBundle<V, B, D, I> {
     pub fn new(
         state: Arc<GraphicsState<B, D, I>>,
         render_pass: &B::RenderPass,
         render_area: Extent2D,
-        set: &ShaderSet
+        set: &ShaderSet,
     ) -> Result<Self, Error> {
         let pipeline_layout = PipelineLayoutBundle::new(Arc::clone(&state), set)?;
 
         info!("{}", "Creating new pipeline".green());
 
-        let pipeline =
-            Self::create(&state.device(), render_pass, render_area, &set, pipeline_layout.layout())?;
+        let pipeline = Self::create(
+            &state.device(),
+            render_pass,
+            render_area,
+            &set,
+            pipeline_layout.layout(),
+        )?;
         Ok(Self {
             pipeline_layout,
             pipeline: ManuallyDrop::new(pipeline),
             state,
-            phantom: PhantomData
+            phantom: PhantomData,
         })
     }
 
@@ -80,7 +88,10 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineBundle
         &self.pipeline_layout.descriptor_set()
     }
 
-    pub fn bind_assets(&self, descriptors: Vec<(DescriptorBinding, DescriptorArrayIndex, Descriptor<B>)>) {
+    pub fn bind_assets(
+        &self,
+        descriptors: Vec<(DescriptorBinding, DescriptorArrayIndex, Descriptor<B>)>,
+    ) {
         self.pipeline_layout.bind_assets(descriptors);
     }
 
@@ -90,7 +101,7 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineBundle
         render_pass: &B::RenderPass,
         render_area: Extent2D,
         set: &ShaderSet,
-        layout: &B::PipelineLayout
+        layout: &B::PipelineLayout,
     ) -> Result<B::GraphicsPipeline, Error> {
         let shader_modules = Self::create_shader_modules(&device, set)?;
         let result = {
@@ -233,10 +244,7 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineBundle
         ])
     }
 
-    fn destroy_shader_modules(
-        device: &D,
-        mut shader_modules: [Option<B::ShaderModule>; 5],
-    ) {
+    fn destroy_shader_modules(device: &D, mut shader_modules: [Option<B::ShaderModule>; 5]) {
         for shader in &mut shader_modules {
             if let Some(s) = shader.take() {
                 unsafe { device.destroy_shader_module(s) }
@@ -269,9 +277,7 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineBundle
         }
     }
 
-    fn create_shader_entry_point(
-        shader_module: &Option<B::ShaderModule>,
-    ) -> Option<EntryPoint<B>> {
+    fn create_shader_entry_point(shader_module: &Option<B::ShaderModule>) -> Option<EntryPoint<B>> {
         match shader_module {
             Some(ref m) => Some(EntryPoint {
                 entry: "main",
@@ -286,7 +292,9 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineBundle
     }
 }
 
-impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Drop for PipelineBundle<V, B, D, I> {
+impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop
+    for PipelineBundle<V, B, D, I>
+{
     fn drop(&mut self) {
         use core::ptr::read;
 
@@ -298,5 +306,15 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Drop for Pipel
         unsafe {
             device.destroy_graphics_pipeline(ManuallyDrop::into_inner(read(pipeline)));
         }
+    }
+}
+
+impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug
+    for PipelineBundle<V, B, D, I>
+{
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:?}", self.pipeline_layout)?;
+        write!(f, "{}", self.state)?;
+        Ok(())
     }
 }

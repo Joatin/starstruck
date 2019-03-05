@@ -2,6 +2,8 @@ use crate::context::Context;
 use crate::errors::CreateEncoderErrorKind;
 use crate::input::UserInput;
 use crate::internal::graphics::GraphicsState;
+use crate::internal::menu::InitView;
+use crate::internal::menu::MenuManager;
 use crate::setup_context::SetupContext;
 use colored::*;
 use failure::Error;
@@ -9,6 +11,8 @@ use futures::lazy;
 use futures::Future;
 use futures::IntoFuture;
 use gfx_hal::device::Device;
+use gfx_hal::Backend;
+use gfx_hal::Instance;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -19,12 +23,6 @@ use std::time::Instant;
 use winit::EventsLoop;
 use winit::Window;
 use winit::WindowBuilder;
-use gfx_hal::Backend;
-use gfx_hal::Instance;
-use crate::internal::menu::MenuManager;
-use crate::internal::menu::InitView;
-use std::thread::sleep;
-use std::time::Duration;
 
 const BANNER: &str = "
 
@@ -39,27 +37,64 @@ $$\\   $$ |  $$ |$$\\ $$  __$$ |$$ |       \\____$$\\   $$ |$$\\ $$ |      $$ | 
 
  ";
 
-pub struct Starstruck<State, RenderCallback, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+/// The main struct used when writing a starstruck application.
+pub struct Starstruck<State, RenderCallback, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
     title: String,
     window: Window,
     events_loop: EventsLoop,
     graphics_state: Arc<GraphicsState<B, D, I>>,
     setup_context: Arc<SetupContext<B, D, I>>,
     setup_callback: Option<Box<Future<Item = State, Error = Error> + Send>>,
-    render_callback: RenderCallback
+    render_callback: RenderCallback,
 }
 
-impl<'a, State: 'static + Send + Sync, RenderCallback> Starstruck<State, RenderCallback, backend::Backend, backend::Device, backend::Instance>
+impl<'a, State: 'static + Send + Sync, RenderCallback>
+    Starstruck<State, RenderCallback, backend::Backend, backend::Device, backend::Instance>
 where
-    RenderCallback: FnMut((&mut State, &mut Context<backend::Backend, backend::Device, backend::Instance>)) -> Result<(), Error>,
+    RenderCallback: FnMut(
+        (
+            &mut State,
+            &mut Context<backend::Backend, backend::Device, backend::Instance>,
+        ),
+    ) -> Result<(), Error>,
 {
+    /// Initializes a new Starstruck instance
+    ///
+    /// # Arguments
+    ///
+    /// * `title` - The name used for this app. This is also displayed in the window on operating systems that supports it
+    /// * `setup_callback` - Callback used to setup all needed dependencies
+    /// * `render_callback` - Called on each render loop. Used to draw the app
+    ///
+    /// # Errors
+    ///
+    /// Result might contain an error if something went wrong during setup
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error>{
+    /// use starstruck::Starstruck;
+    ///
+    /// let starstruck = Starstruck::init(
+    ///     "Example",
+    ///     |_setup| Ok(()),
+    ///     |(_state, _context)| Ok(())
+    /// )?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn init<C, F, FI>(
         title: &str,
         setup_callback: C,
         render_callback: RenderCallback,
     ) -> Result<Self, Error>
     where
-        C: Send + 'static + FnOnce(Arc<SetupContext<backend::Backend, backend::Device, backend::Instance>>) -> F,
+        C: Send
+            + 'static
+            + FnOnce(Arc<SetupContext<backend::Backend, backend::Device, backend::Instance>>) -> F,
         F: IntoFuture<Future = FI, Item = State, Error = Error> + 'static,
         FI: Future<Item = State, Error = Error> + Send + 'static,
     {
@@ -87,13 +122,43 @@ where
             graphics_state,
             setup_context: context,
             setup_callback: s_callback,
-            render_callback
+            render_callback,
         })
     }
 
+    /// Starts starstruck and enters the render loop
+    ///
+    /// Observer that this will consume the thread
+    ///
+    /// # Errors
+    ///
+    /// Result might contain an error if something went wrong during the render loop
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use starstruck::Starstruck;
+    ///
+    /// let starstruck = Starstruck::init(
+    ///     "Example",
+    ///     |_setup| Ok(()),
+    ///     |(_state, context)| {
+    ///         context.stop_starstruck();
+    ///         Ok(())
+    ///     }
+    /// )?;
+    ///
+    /// starstruck.run()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn run(mut self) -> Result<(), Error> {
         let initial_view = Arc::new(InitView::new()?);
-        let mut menu_manager = MenuManager::new(Arc::clone(&self.setup_context), initial_view).wait()?;
+        let mut menu_manager =
+            MenuManager::new(Arc::clone(&self.setup_context), initial_view).wait()?;
         let events_loop = &mut self.events_loop;
         let graphics_state = &mut self.graphics_state;
         let setup = self.setup_callback.take().unwrap();
@@ -108,10 +173,9 @@ where
         thread::spawn(move || {
             let now = Instant::now();
             let r: State = tokio::runtime::current_thread::block_on_all(setup).unwrap();
-            sleep(Duration::from_millis(5000));
             {
                 let mut d = cloned_data.write().unwrap();
-                d.replace(r);
+                *d = Some(r);
             }
             info!(
                 "{}",
@@ -120,6 +184,7 @@ where
         });
 
         let mut recreate_swapchain = false;
+        let mut end_requested = false;
 
         info!("Entering render loop");
         loop {
@@ -153,6 +218,10 @@ where
                             render_callback((d, &mut context))?;
                         }
                     }
+
+                    if context.should_stop_starstruck() {
+                        end_requested = true;
+                    }
                     Ok(())
                 }) {
                     match error.kind() {
@@ -173,7 +242,7 @@ where
                 recreate_swapchain = true;
             }
 
-            if user_input.end_requested {
+            if user_input.end_requested || end_requested {
                 break;
             }
 
@@ -188,7 +257,9 @@ where
     }
 }
 
-impl<State, RenderCallback, B: Backend, D: Device<B>, I: Instance<Backend=B>> Debug for Starstruck<State, RenderCallback, B, D, I> {
+impl<State, RenderCallback, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug
+    for Starstruck<State, RenderCallback, B, D, I>
+{
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.title)?;
         write!(f, "Window: {:?}", self.window)?;

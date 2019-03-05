@@ -1,12 +1,12 @@
 use crate::context::Context;
 use crate::graphics::Camera;
+use gfx_hal::Backend;
+use gfx_hal::Device;
+use gfx_hal::Instance;
 use vek::geom::FrustumPlanes;
 use vek::mat::Mat4;
 use vek::vec::Vec3;
 use winit::VirtualKeyCode;
-use gfx_hal::Instance;
-use gfx_hal::Device;
-use gfx_hal::Backend;
 
 #[derive(Debug, Clone, Copy)]
 pub struct DebugCamera {
@@ -51,7 +51,10 @@ impl DebugCamera {
         self.position = pos;
     }
 
-    pub fn update_from_context<B: Backend, D: Device<B>, I: Instance<Backend=B>>(&mut self, context: &Context<B, D, I>) {
+    pub fn update_from_context<B: Backend, D: Device<B>, I: Instance<Backend = B>>(
+        &mut self,
+        context: &Context<B, D, I>,
+    ) {
         let input = context.input();
 
         // Update projections
@@ -78,22 +81,22 @@ impl DebugCamera {
         let up = Vec3::up();
         let forward = self.make_front();
         let cross_normalized = Vec3::cross(forward, up).normalized();
-        let mut move_vector =
-            input.keys_held
-                .iter()
-                .fold(Vec3 {
-                    x: 0.0_f32,
-                    y: 0.0_f32,
-                    z: 0.0_f32
-                }, |vec, key| match *key {
-                    VirtualKeyCode::W => vec + forward,
-                    VirtualKeyCode::S => vec - forward,
-                    VirtualKeyCode::A => vec - cross_normalized,
-                    VirtualKeyCode::D => vec + cross_normalized,
-                    VirtualKeyCode::Space => vec + up,
-                    VirtualKeyCode::LShift => vec - up,
-                    _ => vec,
-                });
+        let mut move_vector = input.keys_held.iter().fold(
+            Vec3 {
+                x: 0.0_f32,
+                y: 0.0_f32,
+                z: 0.0_f32,
+            },
+            |vec, key| match *key {
+                VirtualKeyCode::W => vec + forward,
+                VirtualKeyCode::S => vec - forward,
+                VirtualKeyCode::A => vec - cross_normalized,
+                VirtualKeyCode::D => vec + cross_normalized,
+                VirtualKeyCode::Space => vec + up,
+                VirtualKeyCode::LShift => vec - up,
+                _ => vec,
+            },
+        );
 
         if move_vector != Vec3::zero() {
             move_vector = move_vector.normalized();

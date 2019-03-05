@@ -1,4 +1,5 @@
 use crate::internal::graphics::BufferBundle;
+use crate::internal::graphics::GraphicsState;
 use crate::internal::graphics::GPU;
 use crate::primitive::Index;
 use crate::primitive::Vertex;
@@ -6,37 +7,50 @@ use arrayvec::ArrayVec;
 use failure::Error;
 use futures::Future;
 use gfx_hal::buffer::IndexBufferView;
+use gfx_hal::buffer::Usage as BufferUsage;
 use gfx_hal::command::RenderPassInlineEncoder;
 use gfx_hal::Backend;
-use gfx_hal::IndexType;
-use std::sync::Arc;
 use gfx_hal::Device;
-use crate::internal::graphics::GraphicsState;
+use gfx_hal::IndexType;
 use gfx_hal::Instance;
-use gfx_hal::buffer::Usage as BufferUsage;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::sync::Arc;
 
-pub struct Bundle<In: Index, V: Vertex, B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend=B> = backend::Instance> {
+/// A bundle contains both the vertexes and indexes needed to render a entity
+pub struct Bundle<
+    In: Index,
+    V: Vertex,
+    B: Backend = backend::Backend,
+    D: Device<B> = backend::Device,
+    I: Instance<Backend = B> = backend::Instance,
+> {
     index_buffer_bundle: BufferBundle<B, D, I, GPU, In>,
     vertex_buffer_bundle: BufferBundle<B, D, I, GPU, V>,
-    index_count: u32
+    index_count: u32,
 }
 
-impl<In: Index, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Bundle<In, V, B, D, I> {
+impl<In: Index, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+    Bundle<In, V, B, D, I>
+{
     pub(crate) fn new(
         state: Arc<GraphicsState<B, D, I>>,
         indexes: Arc<Vec<In>>,
         vertexes: Arc<Vec<V>>,
     ) -> impl Future<Item = Self, Error = Error> + Send {
         let index_count = indexes.len() as u32;
-        let index_buffer_bundle = BufferBundle::<B, D, I, GPU, In>::new(Arc::clone(&state), BufferUsage::VERTEX, indexes);
-        let vertex_buffer_bundle = BufferBundle::<B, D, I, GPU, V>::new(state, BufferUsage::INDEX, vertexes);
+        let index_buffer_bundle =
+            BufferBundle::<B, D, I, GPU, In>::new(Arc::clone(&state), BufferUsage::VERTEX, indexes);
+        let vertex_buffer_bundle =
+            BufferBundle::<B, D, I, GPU, V>::new(state, BufferUsage::INDEX, vertexes);
 
         index_buffer_bundle
             .join(vertex_buffer_bundle)
             .map(move |(index, vert)| Self {
                 index_buffer_bundle: index,
                 vertex_buffer_bundle: vert,
-                index_count
+                index_count,
             })
     }
 
@@ -45,7 +59,7 @@ impl<In: Index, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Bun
     }
 }
 
-fn bind_vertex_bundle<B: Backend, D: Device<B>, I: Instance<Backend=B>, V: Vertex>(
+fn bind_vertex_bundle<B: Backend, D: Device<B>, I: Instance<Backend = B>, V: Vertex>(
     encoder: &mut RenderPassInlineEncoder<B>,
     bundle: &BufferBundle<B, D, I, GPU, V>,
 ) {
@@ -57,7 +71,7 @@ fn bind_vertex_bundle<B: Backend, D: Device<B>, I: Instance<Backend=B>, V: Verte
     }
 }
 
-fn bind_index_bundle<B: Backend, D: Device<B>, I: Instance<Backend=B>, In: Index>(
+fn bind_index_bundle<B: Backend, D: Device<B>, I: Instance<Backend = B>, In: Index>(
     encoder: &mut RenderPassInlineEncoder<B>,
     bundle: &BufferBundle<B, D, I, GPU, In>,
     index_type: IndexType,
@@ -73,20 +87,36 @@ fn bind_index_bundle<B: Backend, D: Device<B>, I: Instance<Backend=B>, In: Index
     }
 }
 
-pub trait BundleEncoderExt<In: Index, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+pub trait BundleEncoderExt<In: Index, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+{
     fn bind_bundle(&mut self, bundle: &Bundle<In, V, B, D, I>);
 }
 
-impl<'a, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> BundleEncoderExt<u16, V, B, D, I> for RenderPassInlineEncoder<'a, B> {
+impl<'a, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+    BundleEncoderExt<u16, V, B, D, I> for RenderPassInlineEncoder<'a, B>
+{
     fn bind_bundle(&mut self, bundle: &Bundle<u16, V, B, D, I>) {
         bind_index_bundle(self, &bundle.index_buffer_bundle, IndexType::U16);
         bind_vertex_bundle(self, &bundle.vertex_buffer_bundle);
     }
 }
 
-impl<'a, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> BundleEncoderExt<u32, V, B, D, I> for RenderPassInlineEncoder<'a, B> {
+impl<'a, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+    BundleEncoderExt<u32, V, B, D, I> for RenderPassInlineEncoder<'a, B>
+{
     fn bind_bundle(&mut self, bundle: &Bundle<u32, V, B, D, I>) {
         bind_index_bundle(self, &bundle.index_buffer_bundle, IndexType::U32);
         bind_vertex_bundle(self, &bundle.vertex_buffer_bundle);
+    }
+}
+
+impl<In: Index, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug
+    for Bundle<In, V, B, D, I>
+{
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:?}", self.index_buffer_bundle)?;
+        write!(f, "{:?}", self.vertex_buffer_bundle)?;
+        write!(f, "{:?}", self.index_count)?;
+        Ok(())
     }
 }

@@ -9,11 +9,11 @@ use futures::Future;
 use gfx_hal::format::Format;
 use gfx_hal::pso::AttributeDesc;
 use gfx_hal::pso::Element;
-use std::mem::size_of;
-use std::sync::Arc;
 use gfx_hal::Backend;
 use gfx_hal::Device;
 use gfx_hal::Instance;
+use std::mem::size_of;
+use std::sync::Arc;
 
 /// A vertex with two floats. This is often used to represent a 2D position
 ///
@@ -54,7 +54,9 @@ impl Vertex for VertexXY {
 
 pub type Vertex2D = VertexXY;
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateDefaultPipeline<VertexXY, B, D, I> for SetupContext<B, D, I> {
+impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> CreateDefaultPipeline<VertexXY, B, D, I>
+    for SetupContext<B, D, I>
+{
     fn create_default_pipeline(
         &self,
     ) -> Box<Future<Item = Arc<Pipeline<VertexXY, B, D, I>>, Error = Error> + Send> {
@@ -62,7 +64,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateDefaultPipeline<Ver
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xy_default.vert.spv")),
                 push_constant_floats: 16,
-                bindings: vec![]
+                bindings: vec![],
             },
             hull: None,
             domain: None,
@@ -70,7 +72,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> CreateDefaultPipeline<Ver
             fragment: Some(ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xy_default.frag.spv")),
                 push_constant_floats: 0,
-                bindings: vec![]
+                bindings: vec![],
             }),
         };
 

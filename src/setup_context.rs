@@ -2,24 +2,28 @@ use crate::graphics::Bundle;
 use crate::graphics::Pipeline;
 use crate::graphics::RecreatePipeline;
 use crate::graphics::ShaderSet;
+use crate::graphics::Texture;
 use crate::internal::graphics::GraphicsState;
 use crate::primitive::Index;
 use crate::primitive::Vertex;
 use failure::Error;
 use futures::Future;
-use std::sync::Arc;
-use std::sync::Mutex;
-use crate::graphics::Texture;
 use gfx_hal::Backend;
 use gfx_hal::Device;
 use gfx_hal::Instance;
+use std::sync::Arc;
+use std::sync::Mutex;
 
-pub struct SetupContext<B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend=B> = backend::Instance> {
+pub struct SetupContext<
+    B: Backend = backend::Backend,
+    D: Device<B> = backend::Device,
+    I: Instance<Backend = B> = backend::Instance,
+> {
     state: Arc<GraphicsState<B, D, I>>,
     pipelines: Arc<Mutex<Vec<Arc<RecreatePipeline<B, D, I>>>>>,
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> SetupContext<B, D, I> {
+impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> SetupContext<B, D, I> {
     pub(crate) fn new(state: Arc<GraphicsState<B, D, I>>) -> Self {
         Self {
             state,
@@ -61,7 +65,10 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> SetupContext<B, D, I> {
         })
     }
 
-    pub fn create_texture(&self, image_data: &'static [u8]) -> impl Future<Item = Texture<B, D, I>, Error = Error> + Send {
+    pub fn create_texture(
+        &self,
+        image_data: &'static [u8],
+    ) -> impl Future<Item = Texture<B, D, I>, Error = Error> + Send {
         Texture::new(Arc::clone(&self.state), image_data)
     }
 
@@ -82,17 +89,26 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>> SetupContext<B, D, I> {
     }
 }
 
-pub trait CreateDefaultPipeline<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
-    fn create_default_pipeline(&self)
-        -> Box<Future<Item = Arc<Pipeline<V, B, D, I>>, Error = Error> + Send>;
+pub trait CreateDefaultPipeline<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
+    fn create_default_pipeline(
+        &self,
+    ) -> Box<Future<Item = Arc<Pipeline<V, B, D, I>>, Error = Error> + Send>;
 }
 
-pub trait CreateTexturedPipeline<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
-    fn create_textured_pipeline(&self)
-        -> Box<Future<Item = Arc<Pipeline<V, B, D, I>>, Error = Error> + Send>;
+pub trait CreateTexturedPipeline<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
+    fn create_textured_pipeline(
+        &self,
+    ) -> Box<Future<Item = Arc<Pipeline<V, B, D, I>>, Error = Error> + Send>;
 }
 
-pub trait CreateBundleFromObj<In: Index, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+pub trait CreateBundleFromObj<
+    In: Index,
+    V: Vertex,
+    B: Backend,
+    D: Device<B>,
+    I: Instance<Backend = B>,
+>
+{
     fn create_bundle_from_obj(
         &self,
         data: &[u8],

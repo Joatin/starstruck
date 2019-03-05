@@ -80,10 +80,8 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
         let render_pass = Self::create_render_pass(&device, format)?;
 
         let (image_available_semaphores, render_finished_semaphores, in_flight_fences) = {
-            let mut image_available_semaphores: Vec<B::Semaphore> =
-                vec![];
-            let mut render_finished_semaphores: Vec<B::Semaphore> =
-                vec![];
+            let mut image_available_semaphores: Vec<B::Semaphore> = vec![];
+            let mut render_finished_semaphores: Vec<B::Semaphore> = vec![];
             let mut in_flight_fences: Vec<B::Fence> = vec![];
             for _ in 0..image_count {
                 in_flight_fences.push(device.create_fence(true)?);
@@ -99,27 +97,22 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
 
         // Create The ImageViews
         let image_views = match backbuffer {
-            Backbuffer::Images(images) => {
-                images
-                    .into_iter()
-                    .map(|image| unsafe {
-                        device.create_image_view(
-                            &image,
-                            ViewKind::D2,
-                            format,
-                            Swizzle::NO,
-                            SubresourceRange {
-                                aspects: Aspects::COLOR,
-                                levels: 0..1,
-                                layers: 0..1,
-                            },
-                        )
-                    })
-                    .collect::<Result<
-                        Vec<B::ImageView>,
-                        gfx_hal::image::ViewError,
-                    >>()?
-            }
+            Backbuffer::Images(images) => images
+                .into_iter()
+                .map(|image| unsafe {
+                    device.create_image_view(
+                        &image,
+                        ViewKind::D2,
+                        format,
+                        Swizzle::NO,
+                        SubresourceRange {
+                            aspects: Aspects::COLOR,
+                            levels: 0..1,
+                            layers: 0..1,
+                        },
+                    )
+                })
+                .collect::<Result<Vec<B::ImageView>, gfx_hal::image::ViewError>>()?,
             Backbuffer::Framebuffer(_) => unimplemented!("Can't handle framebuffer backbuffer!"),
         };
 
@@ -133,18 +126,14 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
             height: render_area.height as _,
             depth: 1,
         };
-        let framebuffers =
-            image_views
-                .iter()
-                .zip(depth_images.iter())
-                .map(|(view, depth_image)| unsafe {
-                    let attachments: ArrayVec<[_; 2]> = [view, &depth_image.image_view].into();
-                    device.create_framebuffer(&render_pass, attachments, image_extent)
-                })
-                .collect::<Result<
-                    Vec<B::Framebuffer>,
-                    gfx_hal::device::OutOfMemory,
-                >>()?;
+        let framebuffers = image_views
+            .iter()
+            .zip(depth_images.iter())
+            .map(|(view, depth_image)| unsafe {
+                let attachments: ArrayVec<[_; 2]> = [view, &depth_image.image_view].into();
+                device.create_framebuffer(&render_pass, attachments, image_extent)
+            })
+            .collect::<Result<Vec<B::Framebuffer>, gfx_hal::device::OutOfMemory>>()?;
 
         // Create Our CommandBuffers
         let command_buffers: Vec<_> = framebuffers
@@ -178,9 +167,7 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
         self.render_area
     }
 
-    pub fn next_encoder(
-        &mut self,
-    ) -> Result<RenderPassInlineEncoder<B>, CreateEncoderError> {
+    pub fn next_encoder(&mut self) -> Result<RenderPassInlineEncoder<B>, CreateEncoderError> {
         let encoder = unsafe {
             let flight_fence = &self.in_flight_fences[self.current_frame];
             self.current_frame = (self.current_frame + 1) % self.frames_in_flight;
@@ -287,22 +274,13 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
         device: &D,
         window: &Window,
         surface: &mut B::Surface,
-    ) -> Result<
-        (
-            B::Swapchain,
-            Backbuffer<B>,
-            Format,
-            Extent2D,
-            usize,
-        ),
-        Error,
-    > {
+    ) -> Result<(B::Swapchain, Backbuffer<B>, Format, Extent2D, usize), Error> {
         let (caps, preferred_formats, present_modes, composite_alphas) =
             surface.compatibility(&adapter.physical_device);
-        debug!("{:?}", caps);
-        debug!("Preferred Formats: {:?}", preferred_formats);
-        debug!("Present Modes: {:?}", present_modes);
-        debug!("Composite Alphas: {:?}", composite_alphas);
+        debug!("{:#?}", caps);
+        debug!("Preferred Formats: {:#?}", preferred_formats);
+        debug!("Present Modes: {:#?}", present_modes);
+        debug!("Composite Alphas: {:#?}", composite_alphas);
 
         // Find the window mode
         let present_mode = {
@@ -382,17 +360,14 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
             image_usage,
         };
 
-        info!("{:?}", swapchain_config);
+        info!("{:#?}", swapchain_config);
         let (swapchain, backbuffer) =
             unsafe { device.create_swapchain(surface, swapchain_config, None)? };
 
         Ok((swapchain, backbuffer, format, extent, image_count as _))
     }
 
-    fn create_render_pass(
-        device: &D,
-        format: Format,
-    ) -> Result<B::RenderPass, Error> {
+    fn create_render_pass(device: &D, format: Format) -> Result<B::RenderPass, Error> {
         let color_attachment = Attachment {
             format: Some(format),
             samples: 4,

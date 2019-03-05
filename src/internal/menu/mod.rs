@@ -1,5 +1,5 @@
-mod menu_manager;
 mod init_view;
+mod menu_manager;
 
-pub use self::menu_manager::MenuManager;
 pub use self::init_view::InitView;
+pub use self::menu_manager::MenuManager;

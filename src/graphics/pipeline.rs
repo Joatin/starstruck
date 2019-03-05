@@ -1,29 +1,37 @@
 use crate::graphics::ShaderSet;
+use crate::graphics::Texture;
 use crate::internal::graphics::GraphicsState;
 use crate::internal::graphics::PipelineBundle;
+use crate::internal::graphics::PipelineLayoutBundle;
 use crate::primitive::Vertex;
 use failure::Error;
 use futures::lazy;
 use futures::Future;
 use gfx_hal::command::RenderPassInlineEncoder;
 use gfx_hal::pso::ShaderStageFlags;
-use std::sync::Arc;
-use std::sync::RwLock;
 use gfx_hal::Backend;
 use gfx_hal::Device;
 use gfx_hal::Instance;
-use crate::internal::graphics::PipelineLayoutBundle;
-use crate::graphics::Texture;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::sync::Arc;
+use std::sync::RwLock;
 
-pub struct Pipeline<V: Vertex, B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend=B> = backend::Instance> {
+pub struct Pipeline<
+    V: Vertex,
+    B: Backend = backend::Backend,
+    D: Device<B> = backend::Device,
+    I: Instance<Backend = B> = backend::Instance,
+> {
     bundle: RwLock<Option<PipelineBundle<V, B, D, I>>>,
     shader_set: ShaderSet,
 }
 
-impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Pipeline<V, B, D, I> {
+impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> Pipeline<V, B, D, I> {
     pub fn new(
         state: Arc<GraphicsState<B, D, I>>,
-        shader_set: ShaderSet
+        shader_set: ShaderSet,
     ) -> impl Future<Item = Self, Error = Error> + Send {
         let shader_set_clone = shader_set.clone();
         lazy(move || {
@@ -31,7 +39,12 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Pipeline<V, B,
             let coned_state = Arc::clone(&state);
 
             state.render_pass(move |render_pass| {
-                PipelineBundle::<V, B, D, I>::new(coned_state, render_pass, render_area, &shader_set_clone)
+                PipelineBundle::<V, B, D, I>::new(
+                    coned_state,
+                    render_pass,
+                    render_area,
+                    &shader_set_clone,
+                )
             })
         })
         .map(move |bundle| Self {
@@ -40,7 +53,10 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Pipeline<V, B,
         })
     }
 
-    pub(crate) fn layout_and_set<T: FnOnce(&B::PipelineLayout, &B::DescriptorSet) -> ()>(&self, callback: T) -> Result<(), Error> {
+    pub(crate) fn layout_and_set<T: FnOnce(&B::PipelineLayout, &B::DescriptorSet) -> ()>(
+        &self,
+        callback: T,
+    ) {
         let lock = self.bundle.read().unwrap();
         if let Some(pipeline) = lock.as_ref() {
             let layout = pipeline.layout();
@@ -49,7 +65,6 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Pipeline<V, B,
         } else {
             error!("Could not get pipeline! This should not be possible!");
         }
-        Ok(())
     }
 
     pub fn bind_texture(&self, texture: &Texture<B, D, I>) {
@@ -59,16 +74,19 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> Pipeline<V, B,
             let descriptors = texture.get_descriptors();
             pipeline.bind_assets(descriptors);
         }
-
     }
 }
 
-pub trait RecreatePipeline<B: Backend, D: Device<B>, I: Instance<Backend=B>>: Sync + Send {
+pub trait RecreatePipeline<B: Backend, D: Device<B>, I: Instance<Backend = B>>:
+    Sync + Send
+{
     fn drop_pipeline(&self);
     fn recreate_pipeline(&self, state: Arc<GraphicsState<B, D, I>>) -> Result<(), Error>;
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend=B>, V: Vertex> RecreatePipeline<B, D, I> for Pipeline<V, B, D, I> {
+impl<B: Backend, D: Device<B>, I: Instance<Backend = B>, V: Vertex> RecreatePipeline<B, D, I>
+    for Pipeline<V, B, D, I>
+{
     fn drop_pipeline(&self) {
         let mut bundle = self.bundle.write().unwrap();
         bundle.take();
@@ -89,7 +107,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend=B>, V: Vertex> RecreatePipeli
     }
 }
 
-pub trait PipelineEncoderExt<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> {
+pub trait PipelineEncoderExt<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
     fn bind_pipeline(&mut self, pipeline: &Pipeline<V, B, D, I>);
     unsafe fn bind_push_constant(
         &mut self,
@@ -100,23 +118,17 @@ pub trait PipelineEncoderExt<V: Vertex, B: Backend, D: Device<B>, I: Instance<Ba
     );
 }
 
-impl<'a, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineEncoderExt<V, B, D, I> for RenderPassInlineEncoder<'a, B> {
+impl<'a, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+    PipelineEncoderExt<V, B, D, I> for RenderPassInlineEncoder<'a, B>
+{
     fn bind_pipeline(&mut self, pipeline: &Pipeline<V, B, D, I>) {
         {
             let bundle = pipeline.bundle.read().unwrap();
             unsafe { self.bind_graphics_pipeline(bundle.as_ref().unwrap().pipeline()) }
         }
-        pipeline.layout_and_set(|layout, set| {
-            unsafe {
-                self.bind_graphics_descriptor_sets(
-                    layout,
-                    0,
-                    Some(set),
-                    &[],
-                );
-            }
+        pipeline.layout_and_set(|layout, set| unsafe {
+            self.bind_graphics_descriptor_sets(layout, 0, Some(set), &[]);
         });
-
     }
     unsafe fn bind_push_constant(
         &mut self,
@@ -130,5 +142,12 @@ impl<'a, V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend=B>> PipelineEn
             .as_ref()
             .expect("Bundle can only be None during swapchain recreation");
         self.push_graphics_constants(bundle.layout(), flags, offset, constants);
+    }
+}
+
+impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for Pipeline<V, B, D, I> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:?}", self.bundle)?;
+        Ok(())
     }
 }
