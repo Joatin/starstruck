@@ -63,6 +63,7 @@ impl Vertex for VertexXYZRG {
 impl<B: Backend, D: Device<B>, I: Instance<Backend = B>>
     CreateTexturedPipeline<VertexXYZRG, B, D, I> for SetupContext<B, D, I>
 {
+    #[allow(clippy::type_complexity)]
     fn create_textured_pipeline(
         &self,
     ) -> Box<Future<Item = Arc<Pipeline<VertexXYZRG, B, D, I>>, Error = Error> + Send> {

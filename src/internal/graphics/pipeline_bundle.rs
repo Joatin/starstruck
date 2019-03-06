@@ -106,16 +106,14 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineBund
             let shaders = Self::create_graphics_shader_set(&shader_modules)?;
             let rasterizer = Self::create_rasterizer();
 
-            let pipeline = Self::create_pipeline(
+            Self::create_pipeline(
                 &device,
                 &render_pass,
                 layout,
                 shaders,
                 rasterizer,
                 render_area,
-            )?;
-
-            pipeline
+            )?
         };
 
         Self::destroy_shader_modules(&device, shader_modules);

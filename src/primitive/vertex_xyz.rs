@@ -53,6 +53,7 @@ pub type Vertex3D = VertexXYZ;
 impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> CreateDefaultPipeline<VertexXYZ, B, D, I>
     for SetupContext<B, D, I>
 {
+    #[allow(clippy::type_complexity)]
     fn create_default_pipeline(
         &self,
     ) -> Box<Future<Item = Arc<Pipeline<VertexXYZ, B, D, I>>, Error = Error> + Send> {

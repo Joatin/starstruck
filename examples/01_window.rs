@@ -2,13 +2,15 @@ use log::LevelFilter;
 use simplelog::Config;
 use simplelog::TermLogger;
 use starstruck::Starstruck;
+use starstruck::StarstruckBuilder;
+use failure::Error;
 
-fn main() {
+fn main() -> Result<(), Error> {
     // Lets get some logs out
-    TermLogger::init(LevelFilter::Info, Config::default()).unwrap();
+    TermLogger::init(LevelFilter::Info, Config::default())?;
 
-    // The actual application
-    let starstruck = Starstruck::init("01 Simple Window", |_| Ok(()), |_| Ok(())).unwrap();
+    let starstruck = StarstruckBuilder::new().init()?;
+    starstruck.run()?;
 
-    starstruck.run().unwrap();
+    Ok(())
 }

@@ -91,19 +91,15 @@ impl DebugCamera {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use starstruck::Starstruck;
-    /// use starstruck::graphics::DebugCamera;
+    /// use starstruck::StarstruckBuilder;
+    /// use starstruck::camera::DebugCamera;
     ///
-    /// let starstruck = Starstruck::init(
-    ///     "Example",
-    ///     |_| {
-    ///         Ok(DebugCamera::new())
-    ///     },
-    ///     |(camera, context)| {
+    /// let starstruck = StarstruckBuilder::new_with_setup(|_| Ok(DebugCamera::new()))
+    ///     .with_render_callback(|(camera, context)| {
     ///         camera.update_from_context(context);
     ///         Ok(())
-    ///     }
-    /// )?;
+    ///     })
+    ///     .init()?;
     /// # Ok(())
     /// # }
     ///
@@ -175,6 +171,12 @@ impl DebugCamera {
         if input.keys_held.contains(&VirtualKeyCode::Right) {
             self.update_orientation(0.0, -0.5);
         }
+    }
+}
+
+impl Default for DebugCamera {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

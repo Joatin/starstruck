@@ -91,7 +91,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> TextureBundle<B, D, I> 
                             && memory_type.properties.contains(Properties::DEVICE_LOCAL)
                     })
                     .map(|(id, _)| MemoryTypeId(id))
-                    .ok_or(format_err!("No queue group found"))?;
+                    .ok_or_else(|| format_err!("No queue group found"))?;
                 let memory = state
                     .device()
                     .allocate_memory(memory_type_id, requirements.size)?;

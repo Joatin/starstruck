@@ -10,6 +10,7 @@ use starstruck::CreateDefaultPipeline;
 use starstruck::SetupContext;
 use starstruck::Starstruck;
 use std::sync::Arc;
+use starstruck::StarstruckBuilder;
 
 // OUR VERTICES
 const VERTICES: [Vertex2D; 3] = [
@@ -42,18 +43,17 @@ impl State {
 }
 
 // MAIN
-fn main() {
+fn main() -> Result<(), Error> {
     TermLogger::init(LevelFilter::Info, Config::default()).unwrap();
 
-    let starstruck = Starstruck::init(
-        "02 Drawing Triangle",
-        |setup| State::new(&setup),
-        |(state, context)| {
+    let starstruck = StarstruckBuilder::new_with_setup(|setup| State::new(&setup))
+        .with_render_callback(|(state, context)| {
             context.draw(&state.triangle_pipeline, &state.triangle_bundle);
             Ok(())
-        },
-    )
-    .unwrap();
+        })
+        .init()?;
 
-    starstruck.run().unwrap();
+    starstruck.run()?;
+
+    Ok(())
 }

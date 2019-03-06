@@ -14,6 +14,7 @@ use gfx_hal::Instance;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+#[allow(clippy::type_complexity)]
 pub struct SetupContext<
     B: Backend = backend::Backend,
     D: Device<B> = backend::Device,
@@ -90,12 +91,14 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> SetupContext<B, D, I> {
 }
 
 pub trait CreateDefaultPipeline<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
+    #[allow(clippy::type_complexity)]
     fn create_default_pipeline(
         &self,
     ) -> Box<Future<Item = Arc<Pipeline<V, B, D, I>>, Error = Error> + Send>;
 }
 
 pub trait CreateTexturedPipeline<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
+    #[allow(clippy::type_complexity)]
     fn create_textured_pipeline(
         &self,
     ) -> Box<Future<Item = Arc<Pipeline<V, B, D, I>>, Error = Error> + Send>;

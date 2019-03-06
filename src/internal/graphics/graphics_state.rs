@@ -103,7 +103,7 @@ impl GraphicsState<backend::Backend, backend::Device, backend::Instance> {
         Ok(Self {
             _instance: ManuallyDrop::new(instance),
             _surface: RwLock::new(surface),
-            adapter: adapter,
+            adapter,
             device,
             queue_group: RwLock::new(queue_group),
             swapchain: RwLock::new(swapchain),

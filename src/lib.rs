@@ -20,6 +20,7 @@ mod context;
 mod internal;
 mod setup_context;
 mod starstruck;
+mod starstruck_builder;
 
 pub mod camera;
 pub mod errors;
@@ -27,7 +28,9 @@ pub mod graphics;
 pub mod input;
 pub mod menu;
 pub mod primitive;
+pub mod callbacks;
 
 pub use self::context::*;
 pub use self::setup_context::*;
 pub use self::starstruck::Starstruck;
+pub use self::starstruck_builder::StarstruckBuilder;

@@ -229,8 +229,7 @@ impl<
                     .find(|qf| qf.supports_transfer())
                     .ok_or_else(|| format_err!("Couldn't find a QueueFamily with Transfer!"))?;
                 let Gpu {
-                    device: _,
-                    mut queues,
+                    mut queues, ..
                 } = unsafe {
                     state
                         .adapter()

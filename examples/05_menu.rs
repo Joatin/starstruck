@@ -17,6 +17,7 @@ use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 use vek::vec::Vec3;
+use starstruck::StarstruckBuilder;
 
 // THIS IS OUR STATE WHERE WE STORE ALL OUR DATA
 struct State {
@@ -62,15 +63,16 @@ impl State {
 }
 
 // MAIN
-fn main() {
+fn main() -> Result<(), Error> {
     TermLogger::init(LevelFilter::Info, Config::default()).unwrap();
 
-    let starstruck = Starstruck::init(
-        "05 Menu",
-        |setup| State::new(setup),
-        |(state, context)| state.render(context),
-    )
-    .unwrap();
+    let setup_callback = |setup| State::new(setup);
 
-    starstruck.run().unwrap();
+    let starstruck = StarstruckBuilder::new_with_setup(setup_callback)
+        .with_render_callback(|(state, context)| state.render(context))
+        .init()?;
+
+    starstruck.run()?;
+
+    Ok(())
 }

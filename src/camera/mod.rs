@@ -1,6 +1,7 @@
 //! This module contains everything related to camera and projection. Usually you use the module to
 //! implement you own camera that determines how everything in your app will be rendered
 
+#[allow(clippy::module_inception)]
 mod camera;
 mod debug_camera;
 
