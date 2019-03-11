@@ -8,6 +8,9 @@ repository = "https://github.com/Joatin/starstruck"
 license = "MIT OR Apache-2.0"
 keywords = ["game", "gfx-rs", "gfx-hal", "winit", "futures"]
 
+[features]
+unstable = []
+
 [dependencies]
 log = "^0.4.6"
 winit = { version = "^0.18.1", features = ["serde"] }
@@ -36,6 +39,8 @@ version = "^0.1"
 [dev-dependencies]
 simplelog = "^0.5.0"
 pretty_assertions = "^0.6.1"
+gfx-backend-empty = "^0.1"
+bencher = "0.1.5"
 
 [build-dependencies]
 glsl-to-spirv = "^0.1.6"

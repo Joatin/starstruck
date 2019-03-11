@@ -13,7 +13,7 @@ use std::time::Instant;
 
 /// These tests require that they are started in the main thread
 fn main() -> Result<(), Error> {
-    TermLogger::init(LevelFilter::Info, Config::default()).unwrap();
+    TermLogger::init(LevelFilter::Warn, Config::default()).unwrap();
     println!();
 
     let tests = vec![(

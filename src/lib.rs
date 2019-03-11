@@ -1,3 +1,5 @@
+
+#![cfg_attr(feature = "unstable", feature(test))]
 //! # Starstruck
 //!
 //! `Starstruck` Is a library that helps you make 3D applications with ease. This is primarily a
@@ -28,9 +30,10 @@ pub mod graphics;
 pub mod input;
 pub mod menu;
 pub mod primitive;
-pub mod callbacks;
+pub mod allocator;
 
 pub use self::context::*;
 pub use self::setup_context::*;
 pub use self::starstruck::Starstruck;
 pub use self::starstruck_builder::StarstruckBuilder;
+

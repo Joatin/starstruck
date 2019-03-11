@@ -31,23 +31,25 @@ use std::fmt::Formatter;
 use std::mem::size_of;
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
+use crate::allocator::GpuAllocator;
+use crate::allocator::Memory;
 
-pub struct TextureBundle<B: Backend, D: Device<B>, I: Instance<Backend = B>> {
+pub struct TextureBundle<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
     image: ManuallyDrop<B::Image>,
     requirements: Requirements,
-    memory: ManuallyDrop<B::Memory>,
+    memory: Memory<B>,
     image_view: ManuallyDrop<B::ImageView>,
     sampler: ManuallyDrop<B::Sampler>,
-    state: Arc<GraphicsState<B, D, I>>,
+    state: Arc<GraphicsState<A, B, D, I>>,
     width: u32,
     height: u32,
     row_pitch: usize,
     pixel_size: usize,
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> TextureBundle<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> TextureBundle<A, B, D, I> {
     pub fn new(
-        state: Arc<GraphicsState<B, D, I>>,
+        state: Arc<GraphicsState<A, B, D, I>>,
         image: RgbaImage,
     ) -> impl Future<Item = Self, Error = Error> + Send {
         let limits = *state.limits();
@@ -92,12 +94,9 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> TextureBundle<B, D, I> 
                     })
                     .map(|(id, _)| MemoryTypeId(id))
                     .ok_or_else(|| format_err!("No queue group found"))?;
-                let memory = state
-                    .device()
-                    .allocate_memory(memory_type_id, requirements.size)?;
-                state
-                    .device()
-                    .bind_image_memory(&memory, 0, &mut the_image)?;
+
+                let mut memory = state.allocator().allocate_memory(memory_type_id, requirements.size)?;
+                memory.bind_image_memory(&state.device(), 0, &mut the_image)?;
 
                 let image_view = state.device().create_image_view(
                     &the_image,
@@ -125,7 +124,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> TextureBundle<B, D, I> 
                 Ok(Self {
                     image: ManuallyDrop::new(the_image),
                     requirements,
-                    memory: ManuallyDrop::new(memory),
+                    memory,
                     image_view: ManuallyDrop::new(image_view),
                     sampler: ManuallyDrop::new(sampler),
                     state,
@@ -143,12 +142,12 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> TextureBundle<B, D, I> 
         let required_bytes = (self.row_pitch * self.height as usize) as _;
         let limits = *self.state.limits();
 
-        BufferBundle::<B, D, I, CPU, image::Rgba<u8>>::new(
+        BufferBundle::<A, B, D, I, CPU, image::Rgba<u8>>::new(
             Arc::clone(&self.state),
             required_bytes,
             BufferUsage::TRANSFER_SRC,
         )
-        .and_then(move |bundle: BufferBundle<B, D, I, CPU, image::Rgba<u8>>| {
+        .and_then(move |bundle: BufferBundle<A, B, D, I, CPU, image::Rgba<u8>>| {
             bundle.write_image_data(image, limits)
         })
         .and_then(move |mut bundle| {
@@ -254,23 +253,25 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> TextureBundle<B, D, I> 
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop for TextureBundle<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop for TextureBundle<A, B, D, I> {
     fn drop(&mut self) {
         use core::ptr::read;
 
         info!("{}", "Dropping texture".red());
 
         let device = self.state.device();
+
+        self.state.allocator().free_memory(&mut self.memory);
+
         unsafe {
             device.destroy_sampler(ManuallyDrop::into_inner(read(&self.sampler)));
             device.destroy_image_view(ManuallyDrop::into_inner(read(&self.image_view)));
             device.destroy_image(ManuallyDrop::into_inner(read(&self.image)));
-            device.free_memory(ManuallyDrop::into_inner(read(&self.memory)));
         }
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for TextureBundle<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for TextureBundle<A, B, D, I> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "{:?}", self.requirements)?;
         write!(f, "{:?}", self.width)?;

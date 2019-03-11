@@ -17,8 +17,8 @@ const INDEXES: [u16; 3] = [0, 1, 2];
 pub fn it_should_create_a_lot_of_bundles() {
 
     let starstruck = StarstruckBuilder::new_with_setup(|setup| {
-        let mut bundles = Vec::with_capacity(100);
-        for _i in 0..100 {
+        let mut bundles = Vec::with_capacity(10000);
+        for _i in 0..10000 {
             bundles.push(setup.create_bundle(&INDEXES, &VERTICES));
         }
         join_all(bundles)

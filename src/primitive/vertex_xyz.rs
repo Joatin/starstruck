@@ -20,6 +20,7 @@ use std::io::BufReader;
 use std::mem::size_of;
 use std::mem::transmute;
 use std::sync::Arc;
+use crate::allocator::GpuAllocator;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct VertexXYZ {
@@ -50,13 +51,13 @@ impl Vertex for VertexXYZ {
 
 pub type Vertex3D = VertexXYZ;
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> CreateDefaultPipeline<VertexXYZ, B, D, I>
-    for SetupContext<B, D, I>
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> CreateDefaultPipeline<VertexXYZ, A, B, D, I>
+    for SetupContext<A, B, D, I>
 {
     #[allow(clippy::type_complexity)]
     fn create_default_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZ, B, D, I>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZ, A, B, D, I>>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_default.vert.spv")),
@@ -77,13 +78,13 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> CreateDefaultPipeline<V
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>>
-    CreateBundleFromObj<u16, VertexXYZ, B, D, I> for SetupContext<B, D, I>
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+    CreateBundleFromObj<u16, VertexXYZ, A, B, D, I> for SetupContext<A, B, D, I>
 {
     fn create_bundle_from_obj(
         &self,
         data: &[u8],
-    ) -> Box<Future<Item = Bundle<u16, VertexXYZ, B, D, I>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Bundle<u16, VertexXYZ, A, B, D, I>, Error = Error> + Send> {
         let mut reader = BufReader::new(data);
         match Obj::load_buf(&mut reader) {
             Ok(obj_data) => {

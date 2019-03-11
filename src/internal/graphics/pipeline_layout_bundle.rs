@@ -21,18 +21,19 @@ use std::fmt::Formatter;
 use std::mem::ManuallyDrop;
 use std::ops::Range;
 use std::sync::Arc;
+use crate::allocator::GpuAllocator;
 
-pub struct PipelineLayoutBundle<B: Backend, D: Device<B>, I: Instance<Backend = B>> {
+pub struct PipelineLayoutBundle<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
     descriptor_layouts: Vec<B::DescriptorSetLayout>,
     layout: ManuallyDrop<B::PipelineLayout>,
     push_constants: Vec<(ShaderStageFlags, Range<u32>)>,
     descriptor_pool: ManuallyDrop<B::DescriptorPool>,
     descriptor_set: B::DescriptorSet,
-    state: Arc<GraphicsState<B, D, I>>,
+    state: Arc<GraphicsState<A, B, D, I>>,
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineLayoutBundle<B, D, I> {
-    pub fn new(state: Arc<GraphicsState<B, D, I>>, set: &ShaderSet) -> Result<Self, Error> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineLayoutBundle<A, B, D, I> {
+    pub fn new(state: Arc<GraphicsState<A, B, D, I>>, set: &ShaderSet) -> Result<Self, Error> {
         let mut bindings = Vec::<DescriptorSetLayoutBinding>::new();
         let mut range = HashMap::<DescriptorType, DescriptorRangeDesc>::new();
         for (binding, ty, count) in &set.vertex.bindings {
@@ -184,7 +185,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineLayoutBundle<B,
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop for PipelineLayoutBundle<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop for PipelineLayoutBundle<A, B, D, I> {
     fn drop(&mut self) {
         use core::ptr::read;
 
@@ -206,7 +207,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop for PipelineLayout
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for PipelineLayoutBundle<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for PipelineLayoutBundle<A, B, D, I> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "{:?}", self.push_constants)?;
         write!(f, "{:?}", self.descriptor_set)?;

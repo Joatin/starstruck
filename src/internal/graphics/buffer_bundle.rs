@@ -31,6 +31,8 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use crate::allocator::Memory;
+use crate::allocator::GpuAllocator;
 
 pub trait BufferBundlePlace {}
 pub struct CPU {}
@@ -38,18 +40,20 @@ pub struct GPU {}
 impl BufferBundlePlace for CPU {}
 impl BufferBundlePlace for GPU {}
 
-/// A buffer bundle contain all resources necessary to maintain a bundle. It also contains a reference to the device used to create in order to take care of it's own destructuring.
+/// A buffer bundle contain all resources necessary to maintain a bundle. It also contains a
+/// reference to the device used to create in order to take care of it's own destructuring.
 pub struct BufferBundle<
+    A: GpuAllocator<B, D>,
     B: Backend,
     D: Device<B>,
-    I: Instance<Backend = B>,
+    I: Instance<Backend=B>,
     P: BufferBundlePlace,
     T: Copy + Send + Sync,
 > {
     pub buffer: ManuallyDrop<B::Buffer>,
-    pub memory: ManuallyDrop<B::Memory>,
+    pub memory: Memory<B>,
     pub queue_group: QueueGroup<B, Transfer>,
-    state: Arc<GraphicsState<B, D, I>>,
+    state: Arc<GraphicsState<A, B, D, I>>,
     pub requirements: Requirements,
     buffer_len: u64,
     usage: BufferUsage,
@@ -57,25 +61,24 @@ pub struct BufferBundle<
     phantom_place: PhantomData<fn() -> P>,
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>, T: Copy + Send + Sync>
-    BufferBundle<B, D, I, CPU, T>
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>, T: Copy + Send + Sync>
+    BufferBundle<A, B, D, I, CPU, T>
 {
     pub fn new(
-        state: Arc<GraphicsState<B, D, I>>,
+        state: Arc<GraphicsState<A, B, D, I>>,
         buffer_len: u64,
         usage: BufferUsage,
     ) -> impl Future<Item = Self, Error = Error> + Send {
         Self::create_buffer(state, buffer_len, usage, Properties::CPU_VISIBLE)
     }
 
-    pub fn write_data(self, data: Arc<Vec<T>>) -> impl Future<Item = Self, Error = Error> + Send {
+    pub fn write_data(mut self, data: Arc<Vec<T>>) -> impl Future<Item = Self, Error = Error> + Send {
         lazy(move || {
             info!("Writing data into buffer");
             unsafe {
-                let mut writer = self
+                let mut writer = self.memory.acquire_mapping_writer(&self
                     .state
-                    .device()
-                    .acquire_mapping_writer(&self.memory, 0..self.requirements.size)?;
+                    .device(), 0..self.requirements.size)?;
                 writer[..data.len()].copy_from_slice(&data);
                 self.state.device().release_mapping_writer(writer)?;
             }
@@ -84,11 +87,11 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>, T: Copy + Send + Sync>
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>>
-    BufferBundle<B, D, I, CPU, image::Rgba<u8>>
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+    BufferBundle<A, B, D, I, CPU, image::Rgba<u8>>
 {
     pub fn write_image_data(
-        self,
+        mut self,
         image: RgbaImage,
         limits: Limits,
     ) -> impl Future<Item = Self, Error = Error> + Send {
@@ -102,10 +105,9 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>>
                     ((row_size as u32 + row_alignment_mask) & !row_alignment_mask) as usize;
                 debug_assert!(row_pitch as usize >= row_size);
 
-                let mut writer = self
+                let mut writer = self.memory.acquire_mapping_writer(&self
                     .state
-                    .device()
-                    .acquire_mapping_writer(&self.memory, 0..self.requirements.size)?;
+                    .device(), 0..self.requirements.size)?;
 
                 for y in 0..image.height() as usize {
                     let row = &(*image)[y * row_size..(y + 1) * row_size];
@@ -120,11 +122,11 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>>
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>, T: Copy + Send + Sync>
-    BufferBundle<B, D, I, GPU, T>
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>, T: Copy + Send + Sync>
+    BufferBundle<A, B, D, I, GPU, T>
 {
     pub fn new(
-        state: Arc<GraphicsState<B, D, I>>,
+        state: Arc<GraphicsState<A, B, D, I>>,
         usage: BufferUsage,
         data: Arc<Vec<T>>,
     ) -> impl Future<Item = Self, Error = Error> + Send {
@@ -135,7 +137,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>, T: Copy + Send + Sync>
             usage | BufferUsage::TRANSFER_DST,
             Properties::DEVICE_LOCAL,
         );
-        let transfer_bundle_future = BufferBundle::<B, D, I, CPU, T>::create_buffer(
+        let transfer_bundle_future = BufferBundle::<A, B, D, I, CPU, T>::create_buffer(
             state,
             buffer_len,
             BufferUsage::TRANSFER_SRC,
@@ -153,7 +155,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>, T: Copy + Send + Sync>
 
     fn import_data_from(
         mut self,
-        source: BufferBundle<B, D, I, CPU, T>,
+        source: BufferBundle<A, B, D, I, CPU, T>,
     ) -> impl Future<Item = Self, Error = Error> + Send {
         lazy(move || unsafe {
             let device = self.state.device();
@@ -207,15 +209,16 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>, T: Copy + Send + Sync>
 }
 
 impl<
-        B: Backend,
-        D: Device<B>,
-        I: Instance<Backend = B>,
-        P: BufferBundlePlace,
-        T: Copy + Send + Sync,
-    > BufferBundle<B, D, I, P, T>
+    A: GpuAllocator<B, D>,
+    B: Backend,
+    D: Device<B>,
+    I: Instance<Backend = B>,
+    P: BufferBundlePlace,
+    T: Copy + Send + Sync,
+    > BufferBundle<A, B, D, I, P, T>
 {
     pub fn create_buffer(
-        state: Arc<GraphicsState<B, D, I>>,
+        state: Arc<GraphicsState<A, B, D, I>>,
         buffer_len: u64,
         usage: BufferUsage,
         memory_properties: Properties,
@@ -277,15 +280,12 @@ impl<
                         format_err!("Couldn't find a memory type to support the buffer!")
                     })?;
 
-                let memory = state
-                    .device()
-                    .allocate_memory(memory_type_id, requirements.size)?;
-
-                state.device().bind_buffer_memory(&memory, 0, &mut buffer)?;
+                let mut memory = state.allocator().allocate_memory(memory_type_id, requirements.size)?;
+                memory.bind_buffer_memory(&state.device(), &mut buffer)?;
 
                 Ok(BufferBundle {
                     buffer: ManuallyDrop::new(buffer),
-                    memory: ManuallyDrop::new(memory),
+                    memory,
                     requirements,
                     state,
                     queue_group,
@@ -300,12 +300,13 @@ impl<
 }
 
 impl<
-        B: Backend,
+    A: GpuAllocator<B, D>,
+    B: Backend,
         D: Device<B>,
         I: Instance<Backend = B>,
         P: BufferBundlePlace,
         T: Copy + Send + Sync,
-    > Drop for BufferBundle<B, D, I, P, T>
+    > Drop for BufferBundle<A, B, D, I, P, T>
 {
     fn drop(&mut self) {
         use core::ptr::read;
@@ -319,22 +320,25 @@ impl<
 
         let device = &self.state.device();
         let buffer = &self.buffer;
-        let memory = &self.memory;
+        let memory = &mut self.memory;
+
+        self.state.allocator().free_memory(memory);
 
         unsafe {
             device.destroy_buffer(ManuallyDrop::into_inner(read(buffer)));
-            device.free_memory(ManuallyDrop::into_inner(read(memory)));
+            //device.free_memory(ManuallyDrop::into_inner(read(memory)));
         }
     }
 }
 
 impl<
-        B: Backend,
+    A: GpuAllocator<B, D>,
+    B: Backend,
         D: Device<B>,
         I: Instance<Backend = B>,
         P: BufferBundlePlace,
         T: Copy + Send + Sync,
-    > Debug for BufferBundle<B, D, I, P, T>
+    > Debug for BufferBundle<A, B, D, I, P, T>
 {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "buffer lenght: {}", self.buffer_len)?;

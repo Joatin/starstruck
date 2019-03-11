@@ -8,6 +8,7 @@ use crate::setup_context::SetupContext;
 use failure::Error;
 use futures::Future;
 use std::sync::Arc;
+use crate::allocator::GpuAllocator;
 
 // OUR VERTICES
 const VERTICES: [Vertex2D; 4] = [
@@ -20,18 +21,18 @@ const VERTICES: [Vertex2D; 4] = [
 // INDEXES
 const INDEXES: [u16; 6] = [0, 1, 2, 3, 0, 1];
 
-pub struct MenuManager {
-    view: Option<Arc<View>>,
-    loading_view: Arc<View>,
+pub struct MenuManager<A: GpuAllocator> {
+    view: Option<Arc<View<A>>>,
+    loading_view: Arc<View<A>>,
     show_loading_view: bool,
-    bundle: Bundle<u16, Vertex2D>,
-    pipeline: Arc<Pipeline<Vertex2D>>,
+    bundle: Bundle<u16, Vertex2D, A>,
+    pipeline: Arc<Pipeline<Vertex2D, A>>,
 }
 
-impl MenuManager {
+impl<A: GpuAllocator> MenuManager<A> {
     pub(crate) fn new(
-        setup_context: Arc<SetupContext>,
-        loading_view: Arc<View>,
+        setup_context: Arc<SetupContext<A>>,
+        loading_view: Arc<View<A>>,
     ) -> impl Future<Item = Self, Error = Error> {
         let pipeline_future = setup_context.create_default_pipeline();
         let bundle_future = setup_context.create_bundle(&INDEXES, &VERTICES);
@@ -51,11 +52,11 @@ impl MenuManager {
         self.show_loading_view = false;
     }
 
-    pub fn display(&mut self, view: Option<Arc<View>>) {
+    pub fn display(&mut self, view: Option<Arc<View<A>>>) {
         self.view = view;
     }
 
-    pub(crate) fn draw(&self, context: &mut Context) -> Result<bool, Error> {
+    pub(crate) fn draw(&self, context: &mut Context<A>) -> Result<bool, Error> {
         if self.show_loading_view {
             self.draw_view(context, &self.loading_view)
         } else if let Some(view) = self.view.as_ref() {
@@ -65,7 +66,7 @@ impl MenuManager {
         }
     }
 
-    fn draw_view(&self, context: &mut Context, view: &Arc<View>) -> Result<bool, Error> {
+    fn draw_view(&self, context: &mut Context<A>, view: &Arc<View<A>>) -> Result<bool, Error> {
         context.draw(&self.pipeline, &self.bundle);
         view.draw(context)?;
         Ok(!view.covers_screen())

@@ -19,8 +19,9 @@ use std::fmt::Formatter;
 use std::sync::Arc;
 use std::sync::RwLock;
 use winit::Window;
+use crate::allocator::GpuAllocator;
 
-pub struct GraphicsState<B: Backend, D: Device<B>, I: Instance<Backend = B>> {
+pub struct GraphicsState<A: GpuAllocator<B, D>, B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend = B> = backend::Instance> {
     command_pool: RwLock<ManuallyDrop<CommandPool<B, Graphics>>>,
     queue_group: RwLock<QueueGroup<B, Graphics>>,
     device: Arc<D>,
@@ -29,10 +30,11 @@ pub struct GraphicsState<B: Backend, D: Device<B>, I: Instance<Backend = B>> {
     _instance: ManuallyDrop<I>,
     swapchain: RwLock<SwapchainBundle<B, D>>,
     limits: Limits,
+    allocator: A
 }
 
-impl GraphicsState<backend::Backend, backend::Device, backend::Instance> {
-    pub fn new(title: &str, window: &Window) -> Result<Self, Error> {
+impl<A: GpuAllocator<backend::Backend, backend::Device>> GraphicsState<A> {
+    pub fn new(title: &str, window: &Window, mut allocator: A) -> Result<Self, Error> {
         let instance = backend::Instance::create(title, 1);
         let mut surface = instance.create_surface(window);
         let adapters = instance.enumerate_adapters();
@@ -100,6 +102,8 @@ impl GraphicsState<backend::Backend, backend::Device, backend::Instance> {
             &mut command_pool,
         )?;
 
+        allocator.init(Arc::clone(&device));
+
         Ok(Self {
             _instance: ManuallyDrop::new(instance),
             _surface: RwLock::new(surface),
@@ -109,11 +113,12 @@ impl GraphicsState<backend::Backend, backend::Device, backend::Instance> {
             swapchain: RwLock::new(swapchain),
             command_pool: RwLock::new(ManuallyDrop::new(command_pool)),
             limits,
+            allocator
         })
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> GraphicsState<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> GraphicsState<A, B, D, I> {
     pub fn limits(&self) -> &Limits {
         &self.limits
     }
@@ -151,6 +156,10 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> GraphicsState<B, D, I> 
         &self.adapter
     }
 
+    pub fn allocator(&self) -> &GpuAllocator<B, D> {
+        &self.allocator
+    }
+
     pub fn device(&self) -> Arc<D> {
         Arc::clone(&self.device)
     }
@@ -169,14 +178,14 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> GraphicsState<B, D, I> 
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for GraphicsState<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for GraphicsState<A, B, D, I> {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), fmt::Error> {
         formatter.write_str("Graphics State")?;
         Ok(())
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Display for GraphicsState<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Display for GraphicsState<A, B, D, I> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "Graphics State")?;
         Ok(())

@@ -7,6 +7,7 @@ use vek::geom::FrustumPlanes;
 use vek::mat::Mat4;
 use vek::vec::Vec3;
 use winit::VirtualKeyCode;
+use crate::allocator::GpuAllocator;
 
 /// This camera implements the Camera trait. This camera needs to be updated each frame from the
 /// Context. This camera can be freely navigated in the world space. You can also toggle the
@@ -104,9 +105,9 @@ impl DebugCamera {
     /// # }
     ///
     /// ```
-    pub fn update_from_context<B: Backend, D: Device<B>, I: Instance<Backend = B>>(
+    pub fn update_from_context<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>(
         &mut self,
-        context: &Context<B, D, I>,
+        context: &Context<A, B, D, I>,
     ) {
         let input = context.input();
 

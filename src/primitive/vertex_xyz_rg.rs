@@ -20,6 +20,7 @@ use obj::SimplePolygon;
 use std::io::BufReader;
 use std::mem::size_of;
 use std::sync::Arc;
+use crate::allocator::GpuAllocator;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct VertexXYZRG {
@@ -60,13 +61,13 @@ impl Vertex for VertexXYZRG {
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>>
-    CreateTexturedPipeline<VertexXYZRG, B, D, I> for SetupContext<B, D, I>
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+    CreateTexturedPipeline<VertexXYZRG, A, B, D, I> for SetupContext<A, B, D, I>
 {
     #[allow(clippy::type_complexity)]
     fn create_textured_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZRG, B, D, I>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZRG, A, B, D, I>>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_rg_textured.vert.spv")),
@@ -90,13 +91,13 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>>
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>>
-    CreateBundleFromObj<u16, VertexXYZRG, B, D, I> for SetupContext<B, D, I>
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+    CreateBundleFromObj<u16, VertexXYZRG, A, B, D, I> for SetupContext<A, B, D, I>
 {
     fn create_bundle_from_obj(
         &self,
         data: &[u8],
-    ) -> Box<Future<Item = Bundle<u16, VertexXYZRG, B, D, I>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Bundle<u16, VertexXYZRG, A, B, D, I>, Error = Error> + Send> {
         let mut reader = BufReader::new(data);
         match Obj::load_buf(&mut reader) {
             Ok(obj_data) => {

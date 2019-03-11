@@ -1,6 +1,7 @@
 use crate::context::Context;
 use crate::menu::View;
 use failure::Error;
+use crate::allocator::GpuAllocator;
 
 pub struct InitView {}
 
@@ -10,8 +11,8 @@ impl InitView {
     }
 }
 
-impl View for InitView {
-    fn draw(&self, _context: &Context) -> Result<(), Error> {
+impl<A: GpuAllocator> View<A> for InitView {
+    fn draw(&self, _context: &Context<A>) -> Result<(), Error> {
         Ok(())
     }
 

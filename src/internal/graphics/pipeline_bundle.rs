@@ -44,17 +44,18 @@ use std::fmt::Formatter;
 use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
+use crate::allocator::GpuAllocator;
 
-pub struct PipelineBundle<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
-    pipeline_layout: PipelineLayoutBundle<B, D, I>,
+pub struct PipelineBundle<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
+    pipeline_layout: PipelineLayoutBundle<A, B, D, I>,
     pipeline: ManuallyDrop<B::GraphicsPipeline>,
-    state: Arc<GraphicsState<B, D, I>>,
+    state: Arc<GraphicsState<A, B, D, I>>,
     phantom: PhantomData<V>,
 }
 
-impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineBundle<V, B, D, I> {
+impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineBundle<V, A, B, D, I> {
     pub fn new(
-        state: Arc<GraphicsState<B, D, I>>,
+        state: Arc<GraphicsState<A, B, D, I>>,
         render_pass: &B::RenderPass,
         render_area: Extent2D,
         set: &ShaderSet,
@@ -277,8 +278,8 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineBund
     }
 }
 
-impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop
-    for PipelineBundle<V, B, D, I>
+impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop
+    for PipelineBundle<V, A, B, D, I>
 {
     fn drop(&mut self) {
         use core::ptr::read;
@@ -294,8 +295,8 @@ impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> Drop
     }
 }
 
-impl<V: Vertex, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug
-    for PipelineBundle<V, B, D, I>
+impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug
+    for PipelineBundle<V, A, B, D, I>
 {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "{:?}", self.pipeline_layout)?;

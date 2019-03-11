@@ -15,18 +15,22 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc;
+use crate::allocator::GpuAllocator;
+use crate::allocator::DefaultGpuAllocator;
+use crate::allocator::DefaultChunk;
 
 pub struct Texture<
+    A: GpuAllocator<B, D> = DefaultGpuAllocator<DefaultChunk<backend::Backend, backend::Device>, backend::Backend, backend::Device>,
     B: Backend = backend::Backend,
     D: Device<B> = backend::Device,
     I: Instance<Backend = B> = backend::Instance,
 > {
-    texture: TextureBundle<B, D, I>,
+    texture: TextureBundle<A, B, D, I>,
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Texture<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Texture<A, B, D, I> {
     pub fn new(
-        state: Arc<GraphicsState<B, D, I>>,
+        state: Arc<GraphicsState<A, B, D, I>>,
         data: &'static [u8],
     ) -> impl Future<Item = Self, Error = Error> + Send {
         lazy(move || {
@@ -53,7 +57,7 @@ impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Texture<B, D, I> {
     }
 }
 
-impl<B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for Texture<B, D, I> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug for Texture<A, B, D, I> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "{:?}", self.texture)?;
         Ok(())

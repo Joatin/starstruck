@@ -16,14 +16,18 @@ use gfx_hal::Device;
 use gfx_hal::Instance;
 use vek::geom::FrustumPlanes;
 use vek::Mat4;
+use crate::allocator::GpuAllocator;
+use crate::allocator::DefaultGpuAllocator;
+use crate::allocator::DefaultChunk;
 
 pub struct Context<
     'a,
+    A: GpuAllocator<B, D> = DefaultGpuAllocator<DefaultChunk<backend::Backend, backend::Device>, backend::Backend, backend::Device>,
     B: Backend = backend::Backend,
     D: Device<B> = backend::Device,
     I: Instance<Backend = B> = backend::Instance,
 > {
-    setup_context: &'a SetupContext<B, D, I>,
+    setup_context: &'a SetupContext<A, B, D, I>,
     input: UserInput,
     encoder: RenderPassInlineEncoder<'a, B>,
     base_projection: Mat4<f32>,
@@ -31,10 +35,10 @@ pub struct Context<
     stop: bool,
 }
 
-impl<'a, B: Backend, D: Device<B>, I: Instance<Backend = B>> Context<'a, B, D, I> {
+impl<'a, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Context<'a, A, B, D, I> {
     pub(crate) fn new(
         input: UserInput,
-        setup_context: &'a SetupContext<B, D, I>,
+        setup_context: &'a SetupContext<A, B, D, I>,
         encoder: RenderPassInlineEncoder<'a, B>,
         render_area: Extent2D,
     ) -> Self {
@@ -72,16 +76,16 @@ impl<'a, B: Backend, D: Device<B>, I: Instance<Backend = B>> Context<'a, B, D, I
         &self.input
     }
 
-    pub fn setup_context(&self) -> &SetupContext<B, D, I> {
+    pub fn setup_context(&self) -> &SetupContext<A, B, D, I> {
         self.setup_context
     }
 
     pub fn draw<In: Index, V: Vertex>(
         &mut self,
-        pipeline: &Pipeline<V, B, D, I>,
-        bundle: &Bundle<In, V, B, D, I>,
+        pipeline: &Pipeline<V, A, B, D, I>,
+        bundle: &Bundle<In, V, A, B, D, I>,
     ) where
-        RenderPassInlineEncoder<'a, B>: BundleEncoderExt<In, V, B, D, I>,
+        RenderPassInlineEncoder<'a, B>: BundleEncoderExt<In, V, A, B, D, I>,
     {
         self.encoder.bind_pipeline(pipeline);
         self.encoder.bind_bundle(bundle);
@@ -96,11 +100,11 @@ impl<'a, B: Backend, D: Device<B>, I: Instance<Backend = B>> Context<'a, B, D, I
 
     pub fn draw_with_camera<In: Index, V: Vertex>(
         &mut self,
-        pipeline: &Pipeline<V, B, D, I>,
-        bundle: &Bundle<In, V, B, D, I>,
+        pipeline: &Pipeline<V, A, B, D, I>,
+        bundle: &Bundle<In, V, A, B, D, I>,
         camera: &Camera,
     ) where
-        RenderPassInlineEncoder<'a, B>: BundleEncoderExt<In, V, B, D, I>,
+        RenderPassInlineEncoder<'a, B>: BundleEncoderExt<In, V, A, B, D, I>,
     {
         self.encoder.bind_pipeline(pipeline);
         self.encoder.bind_bundle(bundle);

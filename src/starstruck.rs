@@ -22,8 +22,8 @@ use std::time::Instant;
 use winit::EventsLoop;
 use winit::Window;
 use winit::WindowBuilder;
-use crate::callbacks::State;
 use std::sync::mpsc::channel;
+use crate::allocator::GpuAllocator;
 
 const BANNER: &str = "
 
@@ -38,26 +38,30 @@ $$\\   $$ |  $$ |$$\\ $$  __$$ |$$ |       \\____$$\\   $$ |$$\\ $$ |      $$ | 
 
  ";
 
+pub trait State: Send + Sync + 'static {}
+
+impl<T: Send + Sync + 'static> State for T {}
+
 
 /// The main struct used when writing a starstruck application.
 #[allow(clippy::type_complexity)]
-pub struct Starstruck<S: State, B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend = B> = backend::Instance> {
+pub struct Starstruck<S: State, A: GpuAllocator<B, D>, B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend = B> = backend::Instance> {
     title: String,
     window: Window,
     events_loop: EventsLoop,
-    graphics_state: Arc<GraphicsState<B, D, I>>,
-    setup_context: Arc<SetupContext<B, D, I>>,
+    graphics_state: Arc<GraphicsState<A, B, D, I>>,
+    setup_context: Arc<SetupContext<A, B, D, I>>,
     setup_callback: Option<Box<Future<Item = S, Error = Error> + Send>>,
     render_callback: Box<FnMut(
         (
             &mut S,
-            &mut Context<backend::Backend, backend::Device, backend::Instance>,
+            &mut Context<A, B, D, I>,
         ),
-    ) -> Result<(), Error>>,
+    ) -> Result<(), Error>>
 }
 
-impl<'a, S: State>
-    Starstruck<S, backend::Backend, backend::Device, backend::Instance>
+impl<'a, S: State, A: GpuAllocator>
+    Starstruck<S, A, backend::Backend, backend::Device, backend::Instance>
 {
     /// Initializes a new Starstruck instance
     ///
@@ -73,13 +77,14 @@ impl<'a, S: State>
     #[allow(clippy::type_complexity)]
     pub(crate) fn init<R: Future<Item = S, Error = Error> + Send + 'static, I: IntoFuture<Future = R, Item = S, Error = Error> + 'static>(
         title: &str,
-        mut setup_callback: Box<FnMut(Arc<SetupContext>) -> I + Send>,
+        mut setup_callback: Box<FnMut(Arc<SetupContext<A>>) -> I + Send>,
         render_callback: Box<FnMut(
             (
                 &mut S,
-                &mut Context<backend::Backend, backend::Device, backend::Instance>,
+                &mut Context<A, backend::Backend, backend::Device, backend::Instance>,
             ),
         ) -> Result<(), Error>>,
+        allocator: A
     ) -> Result<Self, Error>
     {
         Self::print_banner();
@@ -89,7 +94,7 @@ impl<'a, S: State>
         let events_loop = EventsLoop::new();
         let window = WindowBuilder::new().with_title(title).build(&events_loop)?;
 
-        let graphics_state = Arc::new(GraphicsState::new(title, &window)?);
+        let graphics_state = Arc::new(GraphicsState::new(title, &window, allocator)?);
         let context = Arc::new(SetupContext::new(Arc::clone(&graphics_state)));
 
         let s_callback = {
@@ -187,7 +192,6 @@ impl<'a, S: State>
 
                     if menu_manager.draw(&mut context)? {
                         if let Some(d) = state.as_mut() {
-                            println!("render callback");
                             render_callback((d, &mut context))?;
                         }
                     }
@@ -231,8 +235,8 @@ impl<'a, S: State>
     }
 }
 
-impl<S: State, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug
-    for Starstruck<S, B, D, I>
+impl<S: State, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Debug
+    for Starstruck<S, A, B, D, I>
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.title)?;

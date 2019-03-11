@@ -12,7 +12,6 @@ use starstruck::Context;
 use starstruck::CreateBundleFromObj;
 use starstruck::CreateTexturedPipeline;
 use starstruck::SetupContext;
-use starstruck::Starstruck;
 use std::sync::Arc;
 use vek::vec::Vec3;
 use starstruck::StarstruckBuilder;
