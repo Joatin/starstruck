@@ -29,7 +29,7 @@ pub struct PipelineLayoutBundle<A: GpuAllocator<B, D>, B: Backend, D: Device<B>,
     push_constants: Vec<(ShaderStageFlags, Range<u32>)>,
     descriptor_pool: ManuallyDrop<B::DescriptorPool>,
     descriptor_set: B::DescriptorSet,
-    state: Arc<GraphicsState<A, B, D, I>>,
+    state: Arc<GraphicsState<A, B, D, I>>
 }
 
 impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> PipelineLayoutBundle<A, B, D, I> {
@@ -154,7 +154,7 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> 
             descriptor_pool: ManuallyDrop::new(descriptor_pool),
             layout: ManuallyDrop::new(layout),
             push_constants,
-            state,
+            state
         })
     }
 

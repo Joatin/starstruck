@@ -24,11 +24,11 @@ use crate::allocator::GpuAllocator;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct VertexXYZRG {
-    x: f32,
-    y: f32,
-    z: f32,
-    u: f32,
-    v: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub r: f32,
+    pub g: f32,
 }
 
 impl VertexXYZRG {}
@@ -67,7 +67,7 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
     #[allow(clippy::type_complexity)]
     fn create_textured_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZRG, A, B, D, I>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Pipeline<VertexXYZRG, A, B, D, I>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_rg_textured.vert.spv")),
@@ -94,6 +94,7 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
 impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
     CreateBundleFromObj<u16, VertexXYZRG, A, B, D, I> for SetupContext<A, B, D, I>
 {
+    #[allow(clippy::type_complexity)]
     fn create_bundle_from_obj(
         &self,
         data: &[u8],
@@ -115,8 +116,8 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
                         x: obj_data.position[poly[0].0][0],
                         y: obj_data.position[poly[0].0][1],
                         z: obj_data.position[poly[0].0][2],
-                        u: obj_data.texture[poly[0].1.unwrap()][0],
-                        v: obj_data.texture[poly[0].1.unwrap()][1],
+                        r: obj_data.texture[poly[0].1.unwrap()][0],
+                        g: obj_data.texture[poly[0].1.unwrap()][1],
                     });
                     indexes.push(i);
                     i += 1;
@@ -124,8 +125,8 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
                         x: obj_data.position[poly[1].0][0],
                         y: obj_data.position[poly[1].0][1],
                         z: obj_data.position[poly[1].0][2],
-                        u: obj_data.texture[poly[1].1.unwrap()][0],
-                        v: obj_data.texture[poly[1].1.unwrap()][1],
+                        r: obj_data.texture[poly[1].1.unwrap()][0],
+                        g: obj_data.texture[poly[1].1.unwrap()][1],
                     });
                     indexes.push(i);
                     i += 1;
@@ -133,8 +134,8 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
                         x: obj_data.position[poly[2].0][0],
                         y: obj_data.position[poly[2].0][1],
                         z: obj_data.position[poly[2].0][2],
-                        u: obj_data.texture[poly[2].1.unwrap()][0],
-                        v: obj_data.texture[poly[2].1.unwrap()][1],
+                        r: obj_data.texture[poly[2].1.unwrap()][0],
+                        g: obj_data.texture[poly[2].1.unwrap()][1],
                     })
                 }
 

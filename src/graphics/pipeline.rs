@@ -19,7 +19,11 @@ use std::sync::RwLock;
 use crate::allocator::GpuAllocator;
 use crate::allocator::DefaultGpuAllocator;
 use crate::allocator::DefaultChunk;
+use crate::graphics::AsFormat;
+use crate::graphics::TextureType;
 
+
+#[allow(clippy::type_complexity)]
 pub struct Pipeline<
     V: Vertex,
     A: GpuAllocator<B, D> = DefaultGpuAllocator<DefaultChunk<backend::Backend, backend::Device>, backend::Backend, backend::Device>,
@@ -27,8 +31,7 @@ pub struct Pipeline<
     D: Device<B> = backend::Device,
     I: Instance<Backend = B> = backend::Instance,
 > {
-    bundle: RwLock<Option<PipelineBundle<V, A, B, D, I>>>,
-    shader_set: ShaderSet,
+    bundle: RwLock<Option<PipelineBundle<V, A, B, D, I>>>
 }
 
 impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Pipeline<V, A, B, D, I> {
@@ -36,23 +39,19 @@ impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Bac
         state: Arc<GraphicsState<A, B, D, I>>,
         shader_set: ShaderSet,
     ) -> impl Future<Item = Self, Error = Error> + Send {
-        let shader_set_clone = shader_set.clone();
         lazy(move || {
-            let render_area = state.render_area();
             let coned_state = Arc::clone(&state);
 
             state.render_pass(move |render_pass| {
                 PipelineBundle::<V, A, B, D, I>::new(
                     coned_state,
                     render_pass,
-                    render_area,
-                    &shader_set_clone,
+                    &shader_set,
                 )
             })
         })
         .map(move |bundle| Self {
-            bundle: RwLock::new(Some(bundle)),
-            shader_set,
+            bundle: RwLock::new(Some(bundle))
         })
     }
 
@@ -70,43 +69,12 @@ impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Bac
         }
     }
 
-    pub fn bind_texture(&self, texture: &Texture<A, B, D, I>) {
-        info!("Binding texture to pipeline");
+    pub fn bind_texture<F: AsFormat + Send, TA: TextureType>(&self, texture: &Texture<F, TA, A, B, D, I>) {
         let lock = self.bundle.read().unwrap();
         if let Some(pipeline) = lock.as_ref() {
             let descriptors = texture.get_descriptors();
             pipeline.bind_assets(descriptors);
         }
-    }
-}
-
-pub trait RecreatePipeline<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>:
-    Sync + Send
-{
-    fn drop_pipeline(&self);
-    fn recreate_pipeline(&self, state: Arc<GraphicsState<A, B, D, I>>) -> Result<(), Error>;
-}
-
-impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>, V: Vertex> RecreatePipeline<A, B, D, I>
-    for Pipeline<V, A, B, D, I>
-{
-    fn drop_pipeline(&self) {
-        let mut bundle = self.bundle.write().unwrap();
-        bundle.take();
-    }
-
-    fn recreate_pipeline(&self, state: Arc<GraphicsState<A, B, D, I>>) -> Result<(), Error> {
-        let render_area = state.render_area();
-        let cloned_state = Arc::clone(&state);
-
-        state.render_pass(move |render_pass| {
-            let mut bundle_lock = self.bundle.write().unwrap();
-            let bundle =
-                PipelineBundle::new(cloned_state, render_pass, render_area, &self.shader_set)?;
-            *bundle_lock = Some(bundle);
-            Ok(())
-        })?;
-        Ok(())
     }
 }
 

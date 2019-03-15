@@ -20,7 +20,7 @@ use starstruck::StarstruckBuilder;
 #[derive(Debug)]
 struct State {
     camera: DebugCamera,
-    triangle_pipeline: Arc<Pipeline<Vertex3DUV>>,
+    triangle_pipeline: Pipeline<Vertex3DUV>,
     triangle_bundle: Bundle<u16, Vertex3DUV>,
     texture: Texture,
 }
@@ -29,7 +29,7 @@ impl State {
     pub fn new(setup: Arc<SetupContext>) -> impl Future<Item = Self, Error = Error> {
         let pipeline_promise = setup.create_textured_pipeline();
         let bundle_promise = setup.create_bundle_from_obj(include_bytes!("assets/cube.obj"));
-        let texture_promise = setup.create_texture(include_bytes!("assets/bricks.jpg"));
+        let texture_promise = setup.create_texture_from_bytes(include_bytes!("assets/bricks.jpg"));
 
         pipeline_promise.join3(bundle_promise, texture_promise).map(
             |(pipeline, bundle, texture)| {

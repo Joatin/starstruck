@@ -19,6 +19,11 @@ use vek::Mat4;
 use crate::allocator::GpuAllocator;
 use crate::allocator::DefaultGpuAllocator;
 use crate::allocator::DefaultChunk;
+use std::sync::Arc;
+use futures::lazy;
+use failure::Error;
+use futures::IntoFuture;
+use futures::Future;
 
 pub struct Context<
     'a,
@@ -27,7 +32,7 @@ pub struct Context<
     D: Device<B> = backend::Device,
     I: Instance<Backend = B> = backend::Instance,
 > {
-    setup_context: &'a SetupContext<A, B, D, I>,
+    setup_context: Arc<SetupContext<A, B, D, I>>,
     input: UserInput,
     encoder: RenderPassInlineEncoder<'a, B>,
     base_projection: Mat4<f32>,
@@ -38,7 +43,7 @@ pub struct Context<
 impl<'a, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> Context<'a, A, B, D, I> {
     pub(crate) fn new(
         input: UserInput,
-        setup_context: &'a SetupContext<A, B, D, I>,
+        setup_context: Arc<SetupContext<A, B, D, I>>,
         encoder: RenderPassInlineEncoder<'a, B>,
         render_area: Extent2D,
     ) -> Self {
@@ -60,6 +65,19 @@ impl<'a, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = 
         }
     }
 
+    pub fn setup<
+        FU: Future<Item=(), Error=Error> + Send + 'static + Sized,
+        IN: IntoFuture<Future=FU, Item=(), Error=Error> + Send + 'static,
+        C: FnOnce(&SetupContext<A, B, D, I>) -> IN + Send + 'static
+    >(&self, callback: C) {
+        let cloned_setup = Arc::clone(&self.setup_context);
+        tokio::run(lazy(move || {
+            callback(&*cloned_setup).into_future().map_err(|error| {
+                error!("Error occurred in setup callback: {:?}", error);
+            })
+        }))
+    }
+
     pub fn stop_starstruck(&mut self) {
         self.stop = true;
     }
@@ -77,7 +95,7 @@ impl<'a, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = 
     }
 
     pub fn setup_context(&self) -> &SetupContext<A, B, D, I> {
-        self.setup_context
+        &*self.setup_context
     }
 
     pub fn draw<In: Index, V: Vertex>(

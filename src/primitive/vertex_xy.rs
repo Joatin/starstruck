@@ -13,7 +13,6 @@ use gfx_hal::Backend;
 use gfx_hal::Device;
 use gfx_hal::Instance;
 use std::mem::size_of;
-use std::sync::Arc;
 use crate::allocator::GpuAllocator;
 
 /// A vertex with two floats. This is often used to represent a 2D position
@@ -61,7 +60,7 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> 
     #[allow(clippy::type_complexity)]
     fn create_default_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXY, A, B, D, I>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Pipeline<VertexXY, A, B, D, I>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xy_default.vert.spv")),

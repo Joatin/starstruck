@@ -1,6 +1,5 @@
 use crate::graphics::Bundle;
 use crate::graphics::Pipeline;
-use crate::graphics::RecreatePipeline;
 use crate::graphics::ShaderSet;
 use crate::graphics::Texture;
 use crate::internal::graphics::GraphicsState;
@@ -12,10 +11,15 @@ use gfx_hal::Backend;
 use gfx_hal::Device;
 use gfx_hal::Instance;
 use std::sync::Arc;
-use std::sync::Mutex;
 use crate::allocator::GpuAllocator;
 use crate::allocator::DefaultGpuAllocator;
 use crate::allocator::DefaultChunk;
+use image::DynamicImage;
+use crate::graphics::AsFormat;
+use image::load_from_memory;
+use crate::graphics::Single;
+use crate::graphics::Rgba8Srgb;
+use futures::lazy;
 
 #[allow(clippy::type_complexity)]
 pub struct SetupContext<
@@ -24,15 +28,13 @@ pub struct SetupContext<
     D: Device<B> = backend::Device,
     I: Instance<Backend = B> = backend::Instance,
 > {
-    state: Arc<GraphicsState<A, B, D, I>>,
-    pipelines: Arc<Mutex<Vec<Arc<RecreatePipeline<A, B, D, I>>>>>,
+    state: Arc<GraphicsState<A, B, D, I>>
 }
 
 impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> SetupContext<A, B, D, I> {
     pub(crate) fn new(state: Arc<GraphicsState<A, B, D, I>>) -> Self {
         Self {
-            state,
-            pipelines: Arc::new(Mutex::new(Vec::new())),
+            state
         }
     }
 
@@ -59,38 +61,36 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> 
     pub fn create_pipeline<V: 'static + Vertex>(
         &self,
         shader_set: ShaderSet,
-    ) -> impl Future<Item = Arc<Pipeline<V, A, B, D, I>>, Error = Error> + Send {
-        let pipelines_mutex = Arc::clone(&self.pipelines);
+    ) -> impl Future<Item = Pipeline<V, A, B, D, I>, Error = Error> + Send {
+        Pipeline::new(Arc::clone(&self.state), shader_set)
+    }
 
-        Pipeline::new(Arc::clone(&self.state), shader_set).map(move |pipeline| {
-            let result = Arc::new(pipeline);
-            let mut pipelines = pipelines_mutex.lock().unwrap();
-            pipelines.push(Arc::clone(&result) as Arc<RecreatePipeline<A, B, D, I>>);
-            result
+    pub fn create_texture_from_bytes(
+        &self,
+        image_data: &'static [u8],
+    ) -> impl Future<Item = Texture<Rgba8Srgb, Single, A, B, D, I>, Error = Error> + Send {
+        let cloned_state = Arc::clone(&self.state);
+        lazy(move || {
+            Ok(load_from_memory(image_data)?)
+        }).and_then(move |image| {
+            Texture::<Rgba8Srgb, Single, A, B, D, I>::new(cloned_state, image)
         })
     }
 
-    pub fn create_texture(
-        &self,
-        image_data: &'static [u8],
-    ) -> impl Future<Item = Texture<A, B, D, I>, Error = Error> + Send {
-        Texture::new(Arc::clone(&self.state), image_data)
+    pub fn create_texture_from_image(&self, image: DynamicImage) -> impl Future<Item = Texture<Rgba8Srgb, Single, A, B, D, I>, Error = Error> + Send {
+        Texture::<Rgba8Srgb, Single, A, B, D, I>::new(Arc::clone(&self.state), image)
     }
 
-    pub fn drop_swapchain_dependant_data(&self) {
-        let pipelines = self.pipelines.lock().unwrap();
-        info!("Dropping all old pipelines");
-        pipelines.iter().for_each(|pipe| pipe.drop_pipeline())
+    pub fn create_texture_sized<F: AsFormat + Send>(&self, width: u32, height: u32) -> impl Future<Item = Texture<F, Single, A, B, D, I>, Error = Error> + Send {
+        Texture::<F, Single, A, B, D, I>::sized(Arc::clone(&self.state), 1, width, height)
     }
 
-    pub fn recreate_swapchain_dependant_data(&self) -> Result<(), Error> {
-        info!("Recreating pipelines");
-        let pipelines = self.pipelines.lock().unwrap();
-        for pipe in pipelines.iter() {
-            pipe.recreate_pipeline(Arc::clone(&self.state))?
-        }
-        info!("All pipelines recreated");
-        Ok(())
+    pub fn logical_window_size(&self) -> (u32, u32) {
+        self.state.logical_window_size()
+    }
+
+    pub fn dpi(&self) -> f64 {
+        self.state.dpi()
     }
 }
 
@@ -98,14 +98,14 @@ pub trait CreateDefaultPipeline<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D:
     #[allow(clippy::type_complexity)]
     fn create_default_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<V, A, B, D, I>>, Error = Error> + Send>;
+    ) -> Box<Future<Item = Pipeline<V, A, B, D, I>, Error = Error> + Send>;
 }
 
 pub trait CreateTexturedPipeline<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
     #[allow(clippy::type_complexity)]
     fn create_textured_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<V, A, B, D, I>>, Error = Error> + Send>;
+    ) -> Box<Future<Item = Pipeline<V, A, B, D, I>, Error = Error> + Send>;
 }
 
 pub trait CreateBundleFromObj<
@@ -117,6 +117,7 @@ pub trait CreateBundleFromObj<
     I: Instance<Backend = B>,
 >
 {
+    #[allow(clippy::type_complexity)]
     fn create_bundle_from_obj(
         &self,
         data: &[u8],

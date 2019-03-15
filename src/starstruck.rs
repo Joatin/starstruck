@@ -24,6 +24,7 @@ use winit::Window;
 use winit::WindowBuilder;
 use std::sync::mpsc::channel;
 use crate::allocator::GpuAllocator;
+use glyph_brush::Layout;
 
 const BANNER: &str = "
 
@@ -138,14 +139,14 @@ impl<'a, S: State, A: GpuAllocator>
     /// # }
     /// ```
     pub fn run(mut self) -> Result<(), Error> {
-        let initial_view = Arc::new(InitView::new()?);
-        let mut menu_manager =
-            MenuManager::new(Arc::clone(&self.setup_context), initial_view).wait()?;
         let events_loop = &mut self.events_loop;
         let graphics_state = &mut self.graphics_state;
         let setup = self.setup_callback.take().unwrap();
         let s_context = &self.setup_context;
         let render_callback = &mut self.render_callback;
+        let initial_view = Arc::new(InitView::new(Arc::clone(s_context)).wait()?);
+        let mut menu_manager =
+            MenuManager::new(Arc::clone(&s_context), initial_view).wait()?;
 
         let mut user_input = UserInput::new();
 
@@ -158,12 +159,17 @@ impl<'a, S: State, A: GpuAllocator>
                 "{}",
                 format!("Setup took {:?} to complete", now.elapsed()).magenta()
             );
-            sender.send(r).unwrap();
+            sender.send(r).unwrap()
         });
 
         let mut recreate_swapchain = false;
         let mut end_requested = false;
         let mut state = None;
+        let mut old_render_area = graphics_state.render_area();
+
+        let mut last_time = Instant::now();
+        let mut fps = 0.0;
+        let mut fps_show_counter = 0;
 
         info!("Entering render loop");
         loop {
@@ -175,25 +181,32 @@ impl<'a, S: State, A: GpuAllocator>
                 }
             }
 
+            if render_area != old_render_area {
+                menu_manager.resize(render_area);
+                old_render_area = render_area;
+            }
+
             if recreate_swapchain {
-                graphics_state.device().wait_idle()?;
-                s_context.drop_swapchain_dependant_data();
+                //graphics_state.device().wait_idle()?;
                 graphics_state.recreate_swapchain(&self.window)?;
-                s_context.recreate_swapchain_dependant_data()?;
                 recreate_swapchain = false;
             }
             user_input.reset_and_poll_events(events_loop);
+
+            menu_manager.draw_text(format!("Fps: {}", fps).as_str(), 16.0, (0.0, 0.0), Layout::default());
 
             let user_input_clone = user_input.clone();
             {
                 if let Err(error) = graphics_state.next_encoder(|encoder| {
                     let mut context =
-                        Context::new(user_input_clone, &s_context, encoder, render_area);
+                        Context::new(user_input_clone, Arc::clone(&s_context), encoder, render_area);
 
-                    if menu_manager.draw(&mut context)? {
+                    let draw = menu_manager.should_draw_content();
+                    if draw {
                         if let Some(d) = state.as_mut() {
                             render_callback((d, &mut context))?;
                         }
+                        menu_manager.draw(&mut context)?;
                     }
 
                     if context.should_stop_starstruck() {
@@ -225,6 +238,18 @@ impl<'a, S: State, A: GpuAllocator>
             }
 
             user_input.flush();
+
+            let now = Instant::now();
+            let elapsed = now.duration_since(last_time);
+            let e_time = elapsed.as_secs() as f64 + f64::from(elapsed.subsec_nanos()) * 1e-9;
+            last_time = now;
+
+            if fps_show_counter > 20 {
+                fps = (1.0 / e_time).round();
+                fps_show_counter = 0;
+            } else {
+                fps_show_counter += 1;
+            }
         }
 
         Ok(())

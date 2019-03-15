@@ -8,8 +8,6 @@ use starstruck::graphics::Pipeline;
 use starstruck::primitive::Vertex2D;
 use starstruck::CreateDefaultPipeline;
 use starstruck::SetupContext;
-use starstruck::Starstruck;
-use std::sync::Arc;
 use starstruck::StarstruckBuilder;
 
 // OUR VERTICES
@@ -24,7 +22,7 @@ const INDEXES: [u16; 3] = [0, 1, 2];
 
 // THIS IS OUR STATE WHERE WE STORE ALL OUR DATA
 struct State {
-    triangle_pipeline: Arc<Pipeline<Vertex2D>>,
+    triangle_pipeline: Pipeline<Vertex2D>,
     triangle_bundle: Bundle<u16, Vertex2D>,
 }
 

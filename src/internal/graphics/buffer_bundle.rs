@@ -20,12 +20,10 @@ use gfx_hal::Backend;
 use gfx_hal::Device;
 use gfx_hal::Gpu;
 use gfx_hal::Instance;
-use gfx_hal::Limits;
 use gfx_hal::MemoryTypeId;
 use gfx_hal::PhysicalDevice;
 use gfx_hal::QueueGroup;
 use gfx_hal::Transfer;
-use image::RgbaImage;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -33,6 +31,9 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use crate::allocator::Memory;
 use crate::allocator::GpuAllocator;
+use image::Pixel;
+use image::ImageBuffer;
+use std::ops::Deref;
 
 pub trait BufferBundlePlace {}
 pub struct CPU {}
@@ -74,7 +75,7 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>, 
 
     pub fn write_data(mut self, data: Arc<Vec<T>>) -> impl Future<Item = Self, Error = Error> + Send {
         lazy(move || {
-            info!("Writing data into buffer");
+            trace!("Writing data into buffer");
             unsafe {
                 let mut writer = self.memory.acquire_mapping_writer(&self
                     .state
@@ -87,31 +88,29 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>, 
     }
 }
 
-impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
-    BufferBundle<A, B, D, I, CPU, image::Rgba<u8>>
+impl<T: Copy + Send + Sync, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
+    BufferBundle<A, B, D, I, CPU, T>
 {
-    pub fn write_image_data(
+    pub fn write_image_data<P, C>(
         mut self,
-        image: RgbaImage,
-        limits: Limits,
-    ) -> impl Future<Item = Self, Error = Error> + Send {
+        image: ImageBuffer<P, C>,
+        row_size: u32,
+        row_pitch: u32
+    ) -> impl Future<Item = Self, Error = Error> + Send where
+        P: Pixel + 'static + Send,
+        P::Subpixel: 'static,
+        C: Deref<Target = [P::Subpixel]> + Send {
         lazy(move || {
             info!("Writing data into buffer");
             unsafe {
-                let pixel_size = size_of::<image::Rgba<u8>>();
-                let row_size = pixel_size * (image.width() as usize);
-                let row_alignment_mask = limits.min_buffer_copy_pitch_alignment as u32 - 1;
-                let row_pitch =
-                    ((row_size as u32 + row_alignment_mask) & !row_alignment_mask) as usize;
-                debug_assert!(row_pitch as usize >= row_size);
 
                 let mut writer = self.memory.acquire_mapping_writer(&self
                     .state
                     .device(), 0..self.requirements.size)?;
 
-                for y in 0..image.height() as usize {
-                    let row = &(*image)[y * row_size..(y + 1) * row_size];
-                    let dest_base = y * row_pitch;
+                for y in 0..image.height() {
+                    let row = &(*image)[(y * row_size) as usize..((y + 1) * row_size) as usize];
+                    let dest_base = (y * row_pitch) as usize;
                     writer[dest_base..dest_base + row.len()].copy_from_slice(row);
                 }
 
@@ -166,7 +165,7 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>, 
                 let mut buffer: CommandBuffer<B, Transfer, OneShot, Primary> =
                     pool.acquire_command_buffer();
 
-                info!("Copying one buffer into another");
+                trace!("Copying one buffer into another");
                 buffer.begin();
                 buffer.copy_buffer(
                     &source.buffer,
@@ -252,7 +251,7 @@ impl<
                 queue_group
             };
 
-            info!(
+            trace!(
                 "{} {} {} {} {}",
                 "Allocating new buffer of type".green(),
                 format!("{:?}", usage).yellow(),
@@ -311,7 +310,7 @@ impl<
     fn drop(&mut self) {
         use core::ptr::read;
 
-        info!(
+        trace!(
             "{} {} {}",
             "Dropping buffer bundle,".red(),
             self.requirements.size.to_string().yellow(),

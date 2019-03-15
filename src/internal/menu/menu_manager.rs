@@ -1,74 +1,83 @@
 use crate::context::Context;
-use crate::graphics::Bundle;
-use crate::graphics::Pipeline;
 use crate::menu::View;
-use crate::primitive::Vertex2D;
-use crate::setup_context::CreateDefaultPipeline;
 use crate::setup_context::SetupContext;
 use failure::Error;
 use futures::Future;
 use std::sync::Arc;
 use crate::allocator::GpuAllocator;
+use gfx_hal::Backend;
+use gfx_hal::Device;
+use gfx_hal::Instance;
+use crate::internal::graphics::TextManager;
+use futures::future::IntoFuture;
+use gfx_hal::window::Extent2D;
+use glyph_brush::Layout;
+use glyph_brush::BuiltInLineBreaker;
 
-// OUR VERTICES
-const VERTICES: [Vertex2D; 4] = [
-    Vertex2D { x: -1.0, y: 1.0 },
-    Vertex2D { x: 1.0, y: -1.0 },
-    Vertex2D { x: 1.0, y: 1.0 },
-    Vertex2D { x: -1.0, y: -1.0 },
-];
-
-// INDEXES
-const INDEXES: [u16; 6] = [0, 1, 2, 3, 0, 1];
-
-pub struct MenuManager<A: GpuAllocator> {
-    view: Option<Arc<View<A>>>,
-    loading_view: Arc<View<A>>,
+pub struct MenuManager<'a, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> {
+    view: Option<Arc<View<A, B, D, I>>>,
+    loading_view: Arc<View<A, B, D, I>>,
     show_loading_view: bool,
-    bundle: Bundle<u16, Vertex2D, A>,
-    pipeline: Arc<Pipeline<Vertex2D, A>>,
+    text_manager: TextManager<'a, A, B, D, I>
 }
 
-impl<A: GpuAllocator> MenuManager<A> {
+impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> MenuManager<'static, A, B, D, I> {
     pub(crate) fn new(
-        setup_context: Arc<SetupContext<A>>,
-        loading_view: Arc<View<A>>,
+        setup_context: Arc<SetupContext<A, B, D, I>>,
+        loading_view: Arc<View<A, B, D, I>>,
     ) -> impl Future<Item = Self, Error = Error> {
-        let pipeline_future = setup_context.create_default_pipeline();
-        let bundle_future = setup_context.create_bundle(&INDEXES, &VERTICES);
 
-        pipeline_future
-            .join(bundle_future)
-            .map(|(pipeline, bundle)| Self {
+        let text_manager_future = TextManager::new(Arc::clone(&setup_context)).into_future();
+
+        text_manager_future
+            .map(|text_manager| Self {
                 view: None,
                 loading_view,
                 show_loading_view: true,
-                bundle,
-                pipeline,
+                text_manager
             })
+    }
+
+    pub fn resize(&mut self, _area: Extent2D) {
+        self.text_manager.resize()
+    }
+
+    pub fn draw_text(&mut self, text: &str, size: f32, screen_position: (f32, f32), layout: Layout<BuiltInLineBreaker>) {
+        self.text_manager.draw_text(text, size, screen_position, layout);
     }
 
     pub fn hide_loading_view(&mut self) {
         self.show_loading_view = false;
     }
 
-    pub fn display(&mut self, view: Option<Arc<View<A>>>) {
+    pub fn _display(&mut self, view: Option<Arc<View<A, B, D, I>>>) {
         self.view = view;
     }
 
-    pub(crate) fn draw(&self, context: &mut Context<A>) -> Result<bool, Error> {
+    pub(crate) fn draw(&mut self, context: &mut Context<A, B, D, I>) -> Result<(), Error> {
+        self.text_manager.draw(context)?;
+
         if self.show_loading_view {
             self.draw_view(context, &self.loading_view)
         } else if let Some(view) = self.view.as_ref() {
             self.draw_view(context, view)
         } else {
-            Ok(true)
+            Ok(())
         }
     }
 
-    fn draw_view(&self, context: &mut Context<A>, view: &Arc<View<A>>) -> Result<bool, Error> {
-        context.draw(&self.pipeline, &self.bundle);
+    pub(crate) fn should_draw_content(&self) -> bool {
+        if self.show_loading_view {
+            self.loading_view.covers_screen()
+        } else if let Some(view) = self.view.as_ref() {
+            !view.covers_screen()
+        } else {
+            true
+        }
+    }
+
+    fn draw_view(&self, context: &mut Context<A, B, D, I>, view: &Arc<View<A, B, D, I>>) -> Result<(), Error> {
         view.draw(context)?;
-        Ok(!view.covers_screen())
+        Ok(())
     }
 }

@@ -20,8 +20,9 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use winit::Window;
 use crate::allocator::GpuAllocator;
+use crate::allocator::DefaultGpuAllocator;
 
-pub struct GraphicsState<A: GpuAllocator<B, D>, B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend = B> = backend::Instance> {
+pub struct GraphicsState<A: GpuAllocator<B, D> = DefaultGpuAllocator, B: Backend = backend::Backend, D: Device<B> = backend::Device, I: Instance<Backend = B> = backend::Instance> {
     command_pool: RwLock<ManuallyDrop<CommandPool<B, Graphics>>>,
     queue_group: RwLock<QueueGroup<B, Graphics>>,
     device: Arc<D>,
@@ -162,6 +163,16 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> 
 
     pub fn device(&self) -> Arc<D> {
         Arc::clone(&self.device)
+    }
+
+    pub fn logical_window_size(&self) -> (u32, u32) {
+        let lock = self.swapchain.read().unwrap();
+        lock.logical_window_size()
+    }
+
+    pub fn dpi(&self) -> f64 {
+        let lock = self.swapchain.read().unwrap();
+        lock.dpi()
     }
 
     pub fn render_pass<T: FnOnce(&B::RenderPass) -> Result<R, Error>, R>(

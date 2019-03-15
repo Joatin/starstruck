@@ -1,7 +1,6 @@
 use log::LevelFilter;
 use simplelog::Config;
 use simplelog::TermLogger;
-use starstruck::Starstruck;
 use starstruck::StarstruckBuilder;
 use failure::Error;
 

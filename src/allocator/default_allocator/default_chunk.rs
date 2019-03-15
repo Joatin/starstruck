@@ -22,7 +22,7 @@ impl<B: Backend, D: Device<B>> Chunk<B, D> for DefaultChunk<B, D> {
     fn new(device: Arc<D>, memory_id: MemoryTypeId, size: u32, id: u64) -> Result<Self, Error> {
 
         info!("Allocating new memory chunk that is {} bytes long", size);
-        let memory = Arc::new(unsafe { device.allocate_memory(memory_id, size as u64) }?);
+        let memory = Arc::new(unsafe { device.allocate_memory(memory_id, u64::from(size)) }?);
 
         Ok(Self {
             size,

@@ -14,7 +14,7 @@ use crate::allocator::default_allocator::default_chunk::DefaultChunk;
 use std::marker::PhantomData;
 
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DefaultGpuAllocator<C: Chunk<B, D> = DefaultChunk<backend::Backend, backend::Device>, B: Backend = backend::Backend, D: Device<B> = backend::Device> {
     device: Option<Arc<D>>,
     chunks: Mutex<HashMap<u64, C>>,
@@ -36,7 +36,7 @@ impl<C: Chunk<B, D>, B: Backend, D: Device<B>> DefaultGpuAllocator<C, B, D> {
 
     fn create_chunk_and_get_memory(&self, memory_id: MemoryTypeId, chunk_size: u32, memory_size: u32) -> Result<Memory<B>, Error> {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst) as u64;
-        let mut chunk = C::new(Arc::clone(self.device.as_ref().ok_or(format_err!("This allocator has not been initialized"))?), memory_id, chunk_size, id)?;
+        let mut chunk = C::new(Arc::clone(self.device.as_ref().ok_or_else(|| format_err!("This allocator has not been initialized"))?), memory_id, chunk_size, id)?;
         let mem = chunk.allocate(memory_size).expect("This should always work since we just allocated it");
         {
             let mut lock = self.chunks.lock().unwrap();
@@ -56,7 +56,7 @@ impl<C: Chunk<B, D>, B: Backend, D: Device<B>> GpuAllocator<B, D> for DefaultGpu
         if size as u32 <= Self::CHUNK_DEFAULT_SIZE {
             {
                 let mut lock = self.chunks.lock().unwrap();
-                for (_id, chunk) in &mut *lock {
+                for chunk in lock.values_mut() {
                     if chunk.memory_id() == memory_id {
                         if let Ok(res) = chunk.allocate(size as u32) {
                             return Ok(res)

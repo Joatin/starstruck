@@ -1,6 +1,6 @@
 [package]
 name = "starstruck"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 authors = ["Joatin Granlund <granlundjoatin@icloud.com>"]
 edition = "2018"
 description = "A game building utility that is made to be simple to use while still providing great performance"
@@ -26,6 +26,7 @@ colored = "^1.7"
 futures = "^0.1.25"
 tokio = "^0.1.15"
 image = "^0.21.0"
+glyph_brush = "^0.4.1"
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies.gfx-backend-vulkan]
 version = "^0.1"

@@ -28,25 +28,24 @@ impl<B: Backend> Memory<B> {
 
     pub unsafe fn bind_buffer_memory<D: Device<B>>(&mut self, device: &Arc<D>, buffer: &mut B::Buffer) -> Result<(), Error> {
         if !self.is_freed && !self.is_allocated {
-            device.bind_buffer_memory(&self.memory, self.range.start as _, buffer)?;
+            device.bind_buffer_memory(&self.memory, u64::from(self.range.start), buffer)?;
             Ok(())
+        } else if self.is_freed {
+            bail!("Can't bind to already freed memory!")
         } else {
-            if self.is_freed {
-                bail!("Can't bind to already freed memory!")
-            } else {
-                bail!("This memory is already allocated")
-            }
+            bail!("This memory is already allocated")
         }
     }
 
     pub unsafe fn acquire_mapping_writer<D: Device<B>, T: Copy>(&mut self, device: &Arc<D>, range: Range<u64>) -> Result<Writer<B, T>, Error> {
-        let start = self.range.start as u64 + range.start;
-        let end = self.range.end as u64 + range.end;
+        let start = u64::from(self.range.start) + range.start;
+        let end = u64::from(self.range.end) + range.end;
         Ok(device.acquire_mapping_writer(&self.memory, start..end)?)
     }
 
     pub unsafe fn bind_image_memory<D: Device<B>>(&mut self, device: &Arc<D>, offset: u64, image: &mut B::Image) -> Result<(), Error> {
-        Ok(device.bind_image_memory(&self.memory, offset, image)?)
+        device.bind_image_memory(&self.memory, offset, image)?;
+        Ok(())
     }
 
     pub fn is_freed(&self) -> bool {
@@ -72,7 +71,7 @@ impl<B: Backend> Memory<B> {
 
 impl<B: Backend> Drop for Memory<B> {
     fn drop(&mut self) {
-        info!(
+        trace!(
             "{}", "Dropping memory".red());
         if !self.is_freed {
             error!("Memory dropped while still not freed! This is a memory leak!");

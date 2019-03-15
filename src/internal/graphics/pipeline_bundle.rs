@@ -21,7 +21,6 @@ use gfx_hal::pso::Descriptor;
 use gfx_hal::pso::DescriptorArrayIndex;
 use gfx_hal::pso::DescriptorBinding;
 use gfx_hal::pso::EntryPoint;
-use gfx_hal::pso::Factor;
 use gfx_hal::pso::GraphicsPipelineDesc;
 use gfx_hal::pso::GraphicsShaderSet;
 use gfx_hal::pso::InputAssemblerDesc;
@@ -29,12 +28,9 @@ use gfx_hal::pso::LogicOp;
 use gfx_hal::pso::Multisampling;
 use gfx_hal::pso::PipelineCreationFlags;
 use gfx_hal::pso::Rasterizer;
-use gfx_hal::pso::Rect;
 use gfx_hal::pso::Specialization;
 use gfx_hal::pso::StencilTest;
 use gfx_hal::pso::VertexBufferDesc;
-use gfx_hal::pso::Viewport;
-use gfx_hal::window::Extent2D;
 use gfx_hal::Backend;
 use gfx_hal::Instance;
 use gfx_hal::Primitive;
@@ -57,7 +53,6 @@ impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Bac
     pub fn new(
         state: Arc<GraphicsState<A, B, D, I>>,
         render_pass: &B::RenderPass,
-        render_area: Extent2D,
         set: &ShaderSet,
     ) -> Result<Self, Error> {
         let pipeline_layout = PipelineLayoutBundle::new(Arc::clone(&state), set)?;
@@ -67,7 +62,6 @@ impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Bac
         let pipeline = Self::create(
             &state.device(),
             render_pass,
-            render_area,
             &set,
             pipeline_layout.layout(),
         )?;
@@ -98,7 +92,6 @@ impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Bac
     fn create(
         device: &D,
         render_pass: &B::RenderPass,
-        render_area: Extent2D,
         set: &ShaderSet,
         layout: &B::PipelineLayout,
     ) -> Result<B::GraphicsPipeline, Error> {
@@ -113,7 +106,6 @@ impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Bac
                 layout,
                 shaders,
                 rasterizer,
-                render_area,
             )?
         };
 
@@ -131,8 +123,7 @@ impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Bac
         render_pass: &B::RenderPass,
         layout: &B::PipelineLayout,
         shaders: GraphicsShaderSet<B>,
-        rasterizer: Rasterizer,
-        render_area: Extent2D,
+        rasterizer: Rasterizer
     ) -> Result<B::GraphicsPipeline, Error> {
         let input_assembler = InputAssemblerDesc::new(Primitive::TriangleList);
 
@@ -153,14 +144,8 @@ impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Bac
 
         let blender = {
             let blend_state = BlendState::On {
-                color: BlendOp::Add {
-                    src: Factor::One,
-                    dst: Factor::Zero,
-                },
-                alpha: BlendOp::Add {
-                    src: Factor::One,
-                    dst: Factor::Zero,
-                },
+                color: BlendOp::ALPHA,
+                alpha: BlendOp::ADD,
             };
             BlendDesc {
                 logic_op: Some(LogicOp::Copy),
@@ -168,19 +153,9 @@ impl<V: Vertex, A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Bac
             }
         };
 
-        let render_area_rect = Rect {
-            x: 0,
-            y: 0,
-            w: render_area.width as _,
-            h: render_area.height as _,
-        };
-
         let baked_states = BakedStates {
-            viewport: Some(Viewport {
-                rect: render_area_rect,
-                depth: (0.0..1.0),
-            }),
-            scissor: Some(render_area_rect),
+            viewport: None,
+            scissor: None,
             blend_color: None,
             depth_bounds: None,
         };

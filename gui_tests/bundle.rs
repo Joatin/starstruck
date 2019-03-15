@@ -1,7 +1,5 @@
 use futures::future::join_all;
-use futures::future::Future;
 use starstruck::primitive::Vertex2D;
-use starstruck::Starstruck;
 use starstruck::StarstruckBuilder;
 
 // OUR VERTICES

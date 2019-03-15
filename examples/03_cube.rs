@@ -11,7 +11,6 @@ use starstruck::Context;
 use starstruck::CreateBundleFromObj;
 use starstruck::CreateDefaultPipeline;
 use starstruck::SetupContext;
-use starstruck::Starstruck;
 use std::sync::Arc;
 use vek::vec::Vec3;
 use starstruck::StarstruckBuilder;
@@ -19,7 +18,7 @@ use starstruck::StarstruckBuilder;
 // THIS IS OUR STATE WHERE WE STORE ALL OUR DATA
 struct State {
     camera: DebugCamera,
-    triangle_pipeline: Arc<Pipeline<Vertex3D>>,
+    triangle_pipeline: Pipeline<Vertex3D>,
     triangle_bundle: Bundle<u16, Vertex3D>,
 }
 

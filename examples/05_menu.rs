@@ -12,7 +12,6 @@ use starstruck::Context;
 use starstruck::CreateBundleFromObj;
 use starstruck::CreateTexturedPipeline;
 use starstruck::SetupContext;
-use starstruck::Starstruck;
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
@@ -22,16 +21,16 @@ use starstruck::StarstruckBuilder;
 // THIS IS OUR STATE WHERE WE STORE ALL OUR DATA
 struct State {
     camera: DebugCamera,
-    triangle_pipeline: Arc<Pipeline<Vertex3DUV>>,
+    triangle_pipeline: Pipeline<Vertex3DUV>,
     triangle_bundle: Bundle<u16, Vertex3DUV>,
-    texture: Texture,
+    _texture: Texture,
 }
 
 impl State {
     pub fn new(setup: Arc<SetupContext>) -> impl Future<Item = Self, Error = Error> {
         let pipeline_promise = setup.create_textured_pipeline();
         let bundle_promise = setup.create_bundle_from_obj(include_bytes!("assets/cube.obj"));
-        let texture_promise = setup.create_texture(include_bytes!("assets/bricks.jpg"));
+        let texture_promise = setup.create_texture_from_bytes(include_bytes!("assets/bricks.jpg"));
 
         pipeline_promise.join3(bundle_promise, texture_promise).map(
             |(pipeline, bundle, texture)| {
@@ -41,12 +40,12 @@ impl State {
                     y: 0.0,
                     z: -3.0,
                 });
-                sleep(Duration::from_millis(5000));
+                sleep(Duration::from_millis(1000));
 
                 pipeline.bind_texture(&texture);
 
                 State {
-                    texture,
+                    _texture: texture,
                     camera,
                     triangle_pipeline: pipeline,
                     triangle_bundle: bundle,

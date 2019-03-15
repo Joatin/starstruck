@@ -57,7 +57,7 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> 
     #[allow(clippy::type_complexity)]
     fn create_default_pipeline(
         &self,
-    ) -> Box<Future<Item = Arc<Pipeline<VertexXYZ, A, B, D, I>>, Error = Error> + Send> {
+    ) -> Box<Future<Item = Pipeline<VertexXYZ, A, B, D, I>, Error = Error> + Send> {
         let set = ShaderSet {
             vertex: ShaderDescription {
                 spirv: include_bytes!(concat!(env!("OUT_DIR"), "/vertex_xyz_default.vert.spv")),
@@ -81,6 +81,8 @@ impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>> 
 impl<A: GpuAllocator<B, D>, B: Backend, D: Device<B>, I: Instance<Backend = B>>
     CreateBundleFromObj<u16, VertexXYZ, A, B, D, I> for SetupContext<A, B, D, I>
 {
+
+    #[allow(clippy::type_complexity)]
     fn create_bundle_from_obj(
         &self,
         data: &[u8],

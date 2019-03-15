@@ -63,6 +63,7 @@ pub struct SwapchainBundle<B: Backend, D: Device<B>> {
     current_frame: usize,
     image_index: usize,
     frames_in_flight: usize,
+    dpi: f64
 }
 
 impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
@@ -75,7 +76,7 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
     ) -> Result<Self, Error> {
         info!("{}", "Creating new swapchain".green());
 
-        let (swapchain, backbuffer, format, render_area, image_count) =
+        let (swapchain, backbuffer, format, render_area, image_count, dpi) =
             Self::create_swapchain(adapter, &device, window, surface)?;
         let render_pass = Self::create_render_pass(&device, format)?;
 
@@ -156,6 +157,7 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
             current_frame: 0,
             image_index: 0,
             frames_in_flight: image_count,
+            dpi
         })
     }
 
@@ -165,6 +167,15 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
 
     pub fn render_area(&self) -> Extent2D {
         self.render_area
+    }
+
+    pub fn logical_window_size(&self) -> (u32, u32) {
+        ((f64::from(self.render_area.width) / self.dpi) as _, (f64::from(self.render_area.height) / self.dpi) as _)
+    }
+
+
+    pub fn dpi(&self) -> f64 {
+        self.dpi
     }
 
     pub fn next_encoder(&mut self) -> Result<RenderPassInlineEncoder<B>, CreateEncoderError> {
@@ -274,7 +285,7 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
         device: &D,
         window: &Window,
         surface: &mut B::Surface,
-    ) -> Result<(B::Swapchain, Backbuffer<B>, Format, Extent2D, usize), Error> {
+    ) -> Result<(B::Swapchain, Backbuffer<B>, Format, Extent2D, usize, f64), Error> {
         let (caps, preferred_formats, present_modes, composite_alphas) =
             surface.compatibility(&adapter.physical_device);
         debug!("{:#?}", caps);
@@ -318,12 +329,13 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
             },
         };
 
+        let dpi_factor = window.get_hidpi_factor();
+
         // Find the window size
         let extent = {
             let window_client_area = window
                 .get_inner_size()
                 .ok_or_else(|| format_err!("Window doesn't exist!"))?;
-            let dpi_factor = window.get_hidpi_factor();
             Extent2D {
                 width: caps
                     .extents
@@ -364,7 +376,7 @@ impl<B: Backend, D: Device<B>> SwapchainBundle<B, D> {
         let (swapchain, backbuffer) =
             unsafe { device.create_swapchain(surface, swapchain_config, None)? };
 
-        Ok((swapchain, backbuffer, format, extent, image_count as _))
+        Ok((swapchain, backbuffer, format, extent, image_count as _, dpi_factor))
     }
 
     fn create_render_pass(device: &D, format: Format) -> Result<B::RenderPass, Error> {
